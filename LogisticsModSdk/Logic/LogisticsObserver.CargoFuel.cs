@@ -811,7 +811,10 @@ public static partial class LogisticsObserver
         pmp.ReduceFuelToMinimum = true;
         pmp.TryFixWrongThrust = true;
         pmp.TrajectoryColor = Color.blue;
-        pmp.SetMissionOrigin(MissionInfo.EMissionCreator.Other);
+        // Stock skips DeltaVPicker.MyInit for MissionCreator.Other, leaving code
+        // probes with default dates and zero fuel. Use the same origin as cycle
+        // jobs so the route picker calculates fuel without launching a mission.
+        pmp.SetMissionOrigin(MissionInfo.EMissionCreator.Cyclical);
         pmp.ChangeStage(PlanMissionWindow.EStageWindow.Schedule);
         var transfer = GetTransferTypeForSpacecraft(providerOI, sc);
         // Moon-case routes (planet ↔ moon) use a slider, not a porkchop plot.
@@ -837,6 +840,27 @@ public static partial class LogisticsObserver
             var result = pmp.CheckCanPlanMission().planMissionResult;
             var callbackFuelType = pmp.FuelNeedToStart ?? fuelType;
             var planFuelNeed = Math.Max(pmp.AllFuelNeed, pmp.MINFuelCost);
+            var routeInitialized = pmp.DepartureTimeDate != default
+                && pmp.Arrival != default
+                && pmp.Arrival >= pmp.DepartureTimeDate;
+            if (result == PMMissionParameter.EPlanMissionResult.AllOk
+                && !routeInitialized
+                && requesterOI != providerOI)
+            {
+                probe.Pending = false;
+                probe.Complete = false;
+                probe.CompletedAt = MonoBehaviourSingleton<TimeController>.Instance?.CurrentTime ?? DateTime.Now;
+                probe.FuelType = callbackFuelType;
+                probe.FuelNeed = pmp.FuelNeed;
+                probe.MinFuelCost = pmp.MINFuelCost;
+                probe.AllFuelNeed = pmp.AllFuelNeed;
+                probe.LeftOverFuel = pmp.LeftOverFuel;
+                probe.RequiredReserve = 0;
+                probe.Result = result;
+                probe.FailureReason = "planner did not initialize route dates/fuel";
+                LogWarning($"RETURNFUEL probe-uninitialized: key={key} returnRoute={requesterOI.ObjectName}->{providerOI.ObjectName} ship={sc.GetSpacecraftName()} result={result} fuel={callbackFuelType?.ID ?? "null"} allFuel={pmp.AllFuelNeed:0.#} minFuel={pmp.MINFuelCost:0.#} depart={pmp.DepartureTimeDate:yyyy-MM-dd} arrive={pmp.Arrival:yyyy-MM-dd}");
+                return;
+            }
             var tankCapacity = scType?.GetFuelCapacity(player) ?? 0;
             var estimatedReturnFuel = Math.Min(Math.Max(0, planFuelNeed), tankCapacity * Math.Max(1, pmp.SCCount));
             var requiredReserve = Math.Ceiling(estimatedReturnFuel * ReturnFuelSafetyMultiplier());
