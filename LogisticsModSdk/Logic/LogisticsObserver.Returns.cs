@@ -125,7 +125,7 @@ public static partial class LogisticsObserver
             if (IsReturnRetryCoolingDown(state, out var returnCooldownNote))
             {
                 state.LastBlockedStatusNote = returnCooldownNote;
-                LogVerbose($"RETURNHOME cooldown: ship={sc.GetSpacecraftName()} id={sc.ID} current={current.ObjectName} home={home.ObjectName} note={returnCooldownNote}");
+                LogVerboseCoalesced($"returnhome-cooldown|{sc.ID}|{current.id}|{home.id}", $"RETURNHOME cooldown: ship={sc.GetSpacecraftName()} id={sc.ID} current={current.ObjectName} home={home.ObjectName} note={returnCooldownNote}");
                 continue;
             }
             state.ReturnRetryAfter = DateTime.MinValue;
@@ -244,7 +244,7 @@ public static partial class LogisticsObserver
         if (IsReturnRetryCoolingDown(state, out var returnCooldownNote))
         {
             state.LastBlockedStatusNote = returnCooldownNote;
-            LogVerbose($"RETURNHOME skip-create-cooldown: ship={sc.GetSpacecraftName()} id={sc.ID} current={current.ObjectName} home={home.ObjectName} note={returnCooldownNote}");
+            LogVerboseCoalesced($"returnhome-skip-create-cooldown|{sc.ID}|{current.id}|{home.id}", $"RETURNHOME skip-create-cooldown: ship={sc.GetSpacecraftName()} id={sc.ID} current={current.ObjectName} home={home.ObjectName} note={returnCooldownNote}");
             return false;
         }
 

@@ -646,7 +646,7 @@ public static partial class LogisticsObserver
         };
 
         if (VerboseLoggingEnabled)
-            LogVerbose($"RETURNFUEL bootstrap-dispatch: blockedResource={blockedResource.ID} target={requesterOI.ObjectName} fuel={fuelType.ID} shortfall={fuelShortfall:0.#} current={current:0.#} inFlight={inFlight:0.#}");
+            LogVerboseCoalesced($"returnfuel-bootstrap|{requesterOI.id}|{blockedResource.ID}|{fuelType.ID}", $"RETURNFUEL bootstrap-dispatch: blockedResource={blockedResource.ID} target={requesterOI.ObjectName} fuel={fuelType.ID} shortfall={fuelShortfall:0.#} current={current:0.#} inFlight={inFlight:0.#}");
         var bootstrapStatus = TryCreateDeliveries(fakeFuelReq, requesterOI, fuelType, fuelShortfall, player);
         blockedReq.status = Data.LogisticsRequestStatus.InProgress;
         blockedReq.statusNote = string.IsNullOrWhiteSpace(bootstrapStatus)
@@ -657,7 +657,7 @@ public static partial class LogisticsObserver
         {
             var reason = $"Return fuel bootstrap blocked for {fuelType.ID} at {requesterOI.ObjectName}: {bootstrapStatus}";
             MarkBlockedPlanningRetryCooldown(requesterOI, blockedResource, reason);
-            LogVerbose($"RETURNFUEL bootstrap-blocked: blockedResource={blockedResource.ID} target={requesterOI.ObjectName} fuel={fuelType.ID} reason=\"{bootstrapStatus}\"");
+            LogVerboseCoalesced($"returnfuel-bootstrap-blocked|{requesterOI.id}|{blockedResource.ID}|{fuelType.ID}", $"RETURNFUEL bootstrap-blocked: blockedResource={blockedResource.ID} target={requesterOI.ObjectName} fuel={fuelType.ID} reason=\"{bootstrapStatus}\"");
         }
         return true;
     }
@@ -771,7 +771,7 @@ public static partial class LogisticsObserver
                 req.status = Data.LogisticsRequestStatus.InProgress;
                 req.statusNote = "Calculating return fuel reserve";
             }
-            LogWarning($"SKIP cycle: return fuel reserve could not be manifested for {realProvider?.ObjectName}->{requesterOI?.ObjectName} rd={rd.ID} requested={amount:0.#}");
+            LogWarningCoalesced($"skip-returnfuel-cycle|{realProvider?.id}|{requesterOI?.id}|{rd.ID}", $"SKIP cycle: return fuel reserve could not be manifested for {realProvider?.ObjectName}->{requesterOI?.ObjectName} rd={rd.ID} requested={amount:0.#}");
             return false;
         }
         amount = normalCargo;
@@ -930,7 +930,7 @@ public static partial class LogisticsObserver
                 req.status = Data.LogisticsRequestStatus.InProgress;
                 req.statusNote = "Calculating return fuel reserve";
             }
-            LogWarning($"SKIP LV cycle: return fuel reserve could not be manifested for {realProvider?.ObjectName}->{requesterOI?.ObjectName} rd={rd.ID} requested={amount:0.#}");
+            LogWarningCoalesced($"skip-returnfuel-lv|{realProvider?.id}|{requesterOI?.id}|{rd.ID}", $"SKIP LV cycle: return fuel reserve could not be manifested for {realProvider?.ObjectName}->{requesterOI?.ObjectName} rd={rd.ID} requested={amount:0.#}");
             return false;
         }
         amount = normalCargo;

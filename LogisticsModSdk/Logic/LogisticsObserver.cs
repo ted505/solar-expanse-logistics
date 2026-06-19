@@ -26,6 +26,10 @@ public static partial class LogisticsObserver
     private static StreamWriter _logWriter;
 
     private static int _logSession;
+
+    private static DateTime _lastLogFlushUtc;
+
+    private static int _pendingLogLineCount;
     // Return fuel is resolved by asking stock planning code, then reserving cargo room for
     // the return propellant. These constants are conservative guardrails for stock probe
     // failures and routes where the probe reports suspiciously low requirements.
@@ -41,6 +45,10 @@ public static partial class LogisticsObserver
     private static bool VerboseLogging => LogisticsModSdk.Plugin.VerboseLogging?.Value ?? false;
 
     public static bool VerboseLoggingEnabled => VerboseLogging;
+
+    private static double VerboseLogCoalesceSeconds => Math.Max(0, LogisticsModSdk.Plugin.VerboseLogCoalesceSeconds?.Value ?? 5.0);
+
+    private static double LogFlushIntervalSeconds => Math.Max(0, LogisticsModSdk.Plugin.LogFlushIntervalSeconds?.Value ?? 2.0);
 
     private static bool TimingLogging => LogisticsModSdk.Plugin.TimingLogging?.Value ?? true;
 
@@ -84,6 +92,8 @@ public static partial class LogisticsObserver
     private static readonly Dictionary<string, DateTime> _routePlanningLocks = new Dictionary<string, DateTime>();
 
     private static readonly Dictionary<string, double> _committedStock = new Dictionary<string, double>();
+
+    private static readonly Dictionary<string, CoalescedLogState> _coalescedLogState = new Dictionary<string, CoalescedLogState>();
 
     private static readonly Dictionary<int, string> _cycleNameByShipId = new Dictionary<int, string>();
 
@@ -193,6 +203,12 @@ public static partial class LogisticsObserver
     {
         public DateTime NextEvaluation;
         public string Signature;
+    }
+
+    private sealed class CoalescedLogState
+    {
+        public DateTime LastWriteUtc;
+        public int Suppressed;
     }
 
     private static readonly Dictionary<string, DateTime> _pendingPlanningDeliveries = new Dictionary<string, DateTime>();
@@ -318,6 +334,12 @@ public static partial class LogisticsObserver
             Log(msg);
     }
 
+    public static void LogVerboseCoalesced(string key, string msg)
+    {
+        if (VerboseLogging)
+            WriteLogCoalesced("", key, msg, false);
+    }
+
     public static void LogWarning(string msg)
     {
         if (!VerboseLogging)
@@ -325,6 +347,15 @@ public static partial class LogisticsObserver
 
         WriteLog("[WARN] ", msg);
         Debug.LogWarning("[LogisticsMod] " + msg);
+    }
+
+    public static void LogWarningCoalesced(string key, string msg)
+    {
+        if (!VerboseLogging)
+            return;
+
+        if (WriteLogCoalesced("[WARN] ", key, msg, true))
+            Debug.LogWarning("[LogisticsMod] " + msg);
     }
 
     public static void LogError(string msg)
@@ -409,6 +440,7 @@ public static partial class LogisticsObserver
         var precalcCount = _precalculateRouteCache.Count;
         var routeTierCount = _routeTierCache.Count;
         var knownMissionCount = _knownLogisticsMissionInfos.Count;
+        var coalescedLogCount = _coalescedLogState.Count;
         _cycleCreatedAt.Clear();
         _cyclePlanningFailures.Clear();
         _pendingPlanningDeliveries.Clear();
@@ -427,13 +459,14 @@ public static partial class LogisticsObserver
         _cycleNameByShipId.Clear();
         _cycleNameByRouteKey.Clear();
         _knownLogisticsMissionInfos.Clear();
+        _coalescedLogState.Clear();
         SolarSdk.Fleet.ClearReservations(SdkReservationOwner);
         SolarSdk.CyclicalMissions.ClearOwner(SdkOwnerTag);
         _cachedSpacecraft = null;
         _nextCompletedTrajectoryScan = default;
         _nextOrphanTrajectoryScan = default;
         if (VerboseLoggingEnabled)
-            LogVerbose($"RESET runtime-state: cycles={cycleCount} pending={pendingCount} returns={returnCount} failures={failCount} fuelProbes={fuelProbeCount} protectedReserveCargo={protectedReserveCargoCount} protectedReserveCycles={protectedReserveCycleCount} protectedReserves={protectedReserveCount} routeLocks={routeLockCount} committed={committedCount} throttles={throttleCount} precalc={precalcCount} routeTiers={routeTierCount} knownMissions={knownMissionCount}");
+        LogVerbose($"RESET runtime-state: cycles={cycleCount} pending={pendingCount} returns={returnCount} failures={failCount} fuelProbes={fuelProbeCount} protectedReserveCargo={protectedReserveCargoCount} protectedReserveCycles={protectedReserveCycleCount} protectedReserves={protectedReserveCount} routeLocks={routeLockCount} committed={committedCount} throttles={throttleCount} precalc={precalcCount} routeTiers={routeTierCount} knownMissions={knownMissionCount} coalescedLogs={coalescedLogCount}");
     }
 
     public static object BuildSdkDebugSnapshot()

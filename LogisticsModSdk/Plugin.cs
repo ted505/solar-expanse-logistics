@@ -23,6 +23,8 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<double> CyclePlanningGraceDays { get; private set; }
     public static ConfigEntry<double> BlockedMissionRetryCooldownDays { get; private set; }
     public static ConfigEntry<bool> VerboseLogging { get; private set; }
+    public static ConfigEntry<double> VerboseLogCoalesceSeconds { get; private set; }
+    public static ConfigEntry<double> LogFlushIntervalSeconds { get; private set; }
     public static ConfigEntry<bool> TimingLogging { get; private set; }
     public static ConfigEntry<double> TimingLogThresholdMs { get; private set; }
     private static ConfigFile _pluginConfig;
@@ -57,6 +59,10 @@ public class Plugin : BaseUnityPlugin
             "In-game days to wait before retrying the same blocked or stale logistics dispatch attempt.");
         VerboseLogging = _pluginConfig.Bind("Diagnostics", "VerboseLogging", false,
             "When enabled, per-request route and dispatch diagnostics are written to BepInEx/LogisticsMod_*.log.");
+        VerboseLogCoalesceSeconds = _pluginConfig.Bind("Diagnostics", "VerboseLogCoalesceSeconds", 5.0,
+            "Wall-clock seconds to coalesce identical high-volume verbose diagnostics. Set to 0 to log every line.");
+        LogFlushIntervalSeconds = _pluginConfig.Bind("Diagnostics", "LogFlushIntervalSeconds", 2.0,
+            "Wall-clock seconds between buffered verbose log flushes. Warnings/errors still flush immediately.");
         TimingLogging = _pluginConfig.Bind("Diagnostics", "TimingLogging", true,
             "When enabled, targeted logistics timing diagnostics are written to BepInEx/LogisticsMod_*.log.");
         TimingLogThresholdMs = _pluginConfig.Bind("Diagnostics", "TimingLogThresholdMs", 5.0,

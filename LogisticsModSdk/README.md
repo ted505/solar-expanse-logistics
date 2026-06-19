@@ -68,6 +68,8 @@ Settings are in `BepInEx/plugins/logisticsmodsdk/LogisticsModSdk.cfg`, created o
 | Reserve Cargo First | `true` | Prioritize return fuel over logistics cargo |
 | Blocked Retry Cooldown | `30 days` | Wait before retrying a blocked dispatch |
 | Verbose Logging | `false` | Detailed route and dispatch diagnostics |
+| Verbose Log Coalesce | `5 seconds` | Collapse repeated cooldown/shortfall diagnostics |
+| Log Flush Interval | `2 seconds` | Buffer verbose log writes to reduce disk I/O |
 
 Logs are written to `BepInEx/LogisticsMod_1.log`.
 

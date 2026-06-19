@@ -118,11 +118,65 @@ public static partial class LogisticsObserver
         {
             _logSession++;
             var path = Path.Combine(Application.dataPath, "..", "BepInEx", $"LogisticsMod_{_logSession}.log");
-            _logWriter = new StreamWriter(path, false) { AutoFlush = true };
+            _logWriter = new StreamWriter(path, false) { AutoFlush = false };
             _logWriter.WriteLine($"=== {DateTime.Now} session={_logSession} ===");
+            _lastLogFlushUtc = DateTime.UtcNow;
         }
         var line = $"[{DateTime.Now:HH:mm:ss}] {level}{msg}";
         _logWriter.WriteLine(line);
+        FlushLogIfNeeded(level == "[WARN] " || level == "[ERROR] ");
+    }
+
+    private static bool WriteLogCoalesced(string level, string key, string msg, bool forceFlush)
+    {
+        if (string.IsNullOrWhiteSpace(key) || VerboseLogCoalesceSeconds <= 0)
+        {
+            WriteLog(level, msg);
+            return true;
+        }
+
+        var now = DateTime.UtcNow;
+        var coalesceKey = $"{level}|{key}";
+        if (_coalescedLogState.TryGetValue(coalesceKey, out var state)
+            && (now - state.LastWriteUtc).TotalSeconds < VerboseLogCoalesceSeconds)
+        {
+            state.Suppressed++;
+            return false;
+        }
+
+        var line = msg;
+        if (state != null && state.Suppressed > 0)
+        {
+            line = $"{msg} [suppressed {state.Suppressed} similar lines]";
+            state.Suppressed = 0;
+        }
+
+        if (state == null)
+            _coalescedLogState[coalesceKey] = state = new CoalescedLogState();
+        state.LastWriteUtc = now;
+        WriteLog(level, line);
+        if (forceFlush)
+            FlushLogIfNeeded(true);
+        return true;
+    }
+
+    private static void FlushLogIfNeeded(bool force)
+    {
+        if (_logWriter == null)
+            return;
+
+        _pendingLogLineCount++;
+        var now = DateTime.UtcNow;
+        var interval = LogFlushIntervalSeconds;
+        if (!force
+            && interval > 0
+            && _pendingLogLineCount < 128
+            && (now - _lastLogFlushUtc).TotalSeconds < interval)
+            return;
+
+        _logWriter.Flush();
+        _pendingLogLineCount = 0;
+        _lastLogFlushUtc = now;
     }
 
     private static bool HasRuntimePlannerWork()
@@ -276,7 +330,7 @@ public static partial class LogisticsObserver
                         LogVerbose($"REQ reorder-open: target={requesterOI?.ObjectName} rd={rd.ID} stock={alreadyThere:0.#} minimum={requestMinimum:0.#} fillTarget={requestTarget:0.#}");
                     }
                 }
-                LogVerbose($"REQ eval: target={requesterOI?.ObjectName} rd={rd.ID} fillTarget={requestTarget:0.#} minimum={requestMinimum:0.#} stock={alreadyThere:0.#} dispatched={req.dispatchedAmount:0.#} status={req.status}");
+                LogVerboseCoalesced($"req-eval|{requesterOI?.id}|{rd.ID}", $"REQ eval: target={requesterOI?.ObjectName} rd={rd.ID} fillTarget={requestTarget:0.#} minimum={requestMinimum:0.#} stock={alreadyThere:0.#} dispatched={req.dispatchedAmount:0.#} status={req.status}");
                 bool oneShotDispatched = req.oneShot && req.dispatchedAmount >= requestTarget;
                 if (req.oneShot ? oneShotDispatched : IsRequestTargetCovered(req, alreadyThere))
                 {
@@ -310,14 +364,14 @@ public static partial class LogisticsObserver
                     req.status = Data.LogisticsRequestStatus.InProgress;
                     if (IsTransientPlanningStatus(req.statusNote))
                         req.statusNote = null;
-                    LogVerbose($"REQ active-cycle-present: target={requesterOI?.ObjectName} rd={rd.ID}; checking whether additional cargo is still needed");
+                    LogVerboseCoalesced($"req-active-cycle|{requesterOI?.id}|{rd.ID}", $"REQ active-cycle-present: target={requesterOI?.ObjectName} rd={rd.ID}; checking whether additional cargo is still needed");
                 }
 
                 if (!hasActiveDelivery && !string.IsNullOrEmpty(blockedReturnNote))
                 {
                     req.status = Data.LogisticsRequestStatus.InProgress;
                     req.statusNote = blockedReturnNote;
-                    LogVerbose($"REQ return-blocked-note-present: target={requesterOI?.ObjectName} rd={rd.ID} note={blockedReturnNote}; continuing outbound planning");
+                    LogVerboseCoalesced($"req-return-blocked|{requesterOI?.id}|{rd.ID}", $"REQ return-blocked-note-present: target={requesterOI?.ObjectName} rd={rd.ID} note={blockedReturnNote}; continuing outbound planning");
                 }
 
                 var inFlight = GetInFlightDeliveryAmount(requesterOI, rd, player, snapshot);
@@ -762,7 +816,7 @@ public static partial class LogisticsObserver
         if (currentTime < state.RetryAfter)
         {
             statusNote = FormatCooldownStatus(state);
-            LogVerbose($"DISPATCH cooldown: target={requester?.ObjectName} rd={rd?.ID} retryAfter={state.RetryAfter:yyyy-MM-dd} reason={state.Reason}");
+            LogVerboseCoalesced($"dispatch-cooldown|{key}", $"DISPATCH cooldown: target={requester?.ObjectName} rd={rd?.ID} retryAfter={state.RetryAfter:yyyy-MM-dd} reason={state.Reason}");
             return true;
         }
 

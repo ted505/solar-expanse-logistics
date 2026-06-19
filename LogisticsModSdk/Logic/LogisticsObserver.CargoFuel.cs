@@ -632,7 +632,7 @@ public static partial class LogisticsObserver
         var reserveScType = sc?.GetTypeSpaceCraft();
         var tankCapacity = reserveScType == null ? 0.0 : reserveScType.GetFuelCapacity(player);
         var fuelToProtect = Math.Min(shortfall, Math.Min(providerFuelAvailable, tankCapacity));
-        LogVerbose($"RETURNFUEL manifest-calc: route={providerOI?.ObjectName}->{requesterOI?.ObjectName} ship={sc?.GetSpacecraftName() ?? "null"} fuel={fuelType.ID} reserve={requiredReserve:0.#} destStock={destinationStock:0.#} existingFuelCargo={existingFuelCargo:0.#} shortfall={shortfall:0.#} providerFuel={providerFuelAvailable:0.#} tank={tankCapacity:0.#} protectedFuel={fuelToProtect:0.#} before={FormatCargo(cargoAll)}");
+        LogVerboseCoalesced($"returnfuel-manifest|{providerOI?.id}|{requesterOI?.id}|{sc?.ID}|{fuelType.ID}", $"RETURNFUEL manifest-calc: route={providerOI?.ObjectName}->{requesterOI?.ObjectName} ship={sc?.GetSpacecraftName() ?? "null"} fuel={fuelType.ID} reserve={requiredReserve:0.#} destStock={destinationStock:0.#} existingFuelCargo={existingFuelCargo:0.#} shortfall={shortfall:0.#} providerFuel={providerFuelAvailable:0.#} tank={tankCapacity:0.#} protectedFuel={fuelToProtect:0.#} before={FormatCargo(cargoAll)}");
 
         if (fuelToProtect > 0)
         {
@@ -650,7 +650,7 @@ public static partial class LogisticsObserver
             blockedFuelType = fuelType;
             blockedFuelShortfall = remainingShortfall;
             if (VerboseLoggingEnabled)
-                LogWarning($"RETURNFUEL plan-shortfall: route={providerOI?.ObjectName}->{requesterOI?.ObjectName} ship={sc?.spacecraftType?.NameRocketType} fuel={fuelType.ID} reserve={requiredReserve:0.#} destStock={destinationStock:0.#} providerFuel={providerFuelAvailable:0.#} fuelAdded={reserveFuelCargo:0.#} shortfall={remainingShortfall:0.#} manifest={FormatCargo(cargoAll)}");
+                LogWarningCoalesced($"returnfuel-shortfall|{providerOI?.id}|{requesterOI?.id}|{sc?.ID}|{fuelType.ID}", $"RETURNFUEL plan-shortfall: route={providerOI?.ObjectName}->{requesterOI?.ObjectName} ship={sc?.spacecraftType?.NameRocketType} fuel={fuelType.ID} reserve={requiredReserve:0.#} destStock={destinationStock:0.#} providerFuel={providerFuelAvailable:0.#} fuelAdded={reserveFuelCargo:0.#} shortfall={remainingShortfall:0.#} manifest={FormatCargo(cargoAll)}");
             return false;
         }
 
@@ -756,7 +756,7 @@ public static partial class LogisticsObserver
         fuelType = probe.FuelType;
         requiredReserve = probe.RequiredReserve;
         destinationStock = GetAccessibleFuelStock(requesterOI, sc, player, fuelType);
-        LogVerbose($"RETURNFUEL probe-cache-hit: outbound={providerOI.ObjectName}->{requesterOI.ObjectName} return={requesterOI.ObjectName}->{providerOI.ObjectName} ship={sc.GetSpacecraftName()} scType={scType.NameRocketType} lv={lvType?.Name ?? "none"} result={probe.Result} fuel={fuelType.ID} allFuel={probe.AllFuelNeed:0.#} minFuel={probe.MinFuelCost:0.#} fuelNeed={probe.FuelNeed:0.#} leftOver={probe.LeftOverFuel:0.#} reserve={requiredReserve:0.#} destStock={destinationStock:0.#} tank={scType.GetFuelCapacity(player):0.#} cargo={FormatCargo(cargoAll)}");
+        LogVerboseCoalesced($"returnfuel-cache|{providerOI.id}|{requesterOI.id}|{scType.ID}|{fuelType.ID}", $"RETURNFUEL probe-cache-hit: outbound={providerOI.ObjectName}->{requesterOI.ObjectName} return={requesterOI.ObjectName}->{providerOI.ObjectName} ship={sc.GetSpacecraftName()} scType={scType.NameRocketType} lv={lvType?.Name ?? "none"} result={probe.Result} fuel={fuelType.ID} allFuel={probe.AllFuelNeed:0.#} minFuel={probe.MinFuelCost:0.#} fuelNeed={probe.FuelNeed:0.#} leftOver={probe.LeftOverFuel:0.#} reserve={requiredReserve:0.#} destStock={destinationStock:0.#} tank={scType.GetFuelCapacity(player):0.#} cargo={FormatCargo(cargoAll)}");
         if (probe.ReturnPlanOverTank)
         {
             var returnNeed = Math.Max(probe.AllFuelNeed, probe.MinFuelCost);
@@ -964,7 +964,7 @@ public static partial class LogisticsObserver
         if (fuelToAdd <= 0)
         {
             if (VerboseLoggingEnabled)
-                LogWarning($"RETURNFUEL plan-shortfall: route={pmp.Start?.ObjectName}->{pmp.Target?.ObjectName} ship={scType.NameRocketType} fuel={fuelType.ID} allFuel={pmp.AllFuelNeed:0.#} minFuel={pmp.MINFuelCost:0.#} planFuel={planFuelNeed:0.#} reserve={requiredReserve:0.#} destStock={destinationStock:0.#} shortfall={shortfall:0.#} providerFuel={providerFuelAvailable:0.#}");
+                LogWarningCoalesced($"returnfuel-plan-shortfall|{pmp.Start?.id}|{pmp.Target?.id}|{scType.ID}|{fuelType.ID}", $"RETURNFUEL plan-shortfall: route={pmp.Start?.ObjectName}->{pmp.Target?.ObjectName} ship={scType.NameRocketType} fuel={fuelType.ID} allFuel={pmp.AllFuelNeed:0.#} minFuel={pmp.MINFuelCost:0.#} planFuel={planFuelNeed:0.#} reserve={requiredReserve:0.#} destStock={destinationStock:0.#} shortfall={shortfall:0.#} providerFuel={providerFuelAvailable:0.#}");
             return;
         }
 
