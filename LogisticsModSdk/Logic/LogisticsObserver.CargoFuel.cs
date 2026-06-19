@@ -8,6 +8,7 @@ using Game;
 using Game.Info;
 using Game.ObjectInfoDataScripts;
 using Game.UI.Windows.Elements.PlanMissionElements;
+using Game.UI.Windows.Windows;
 using Game.VisualizationScripts;
 using Manager;
 using SolarExpanseSdk.Core;
@@ -807,10 +808,11 @@ public static partial class LogisticsObserver
         pmp.SetTabSC(probeSpacecraft);
         pmp.SetTabLV(new List<ILaunchVehicleInfo>(), 0);
         pmp.ForCyclicalMission = true;
-        pmp.ReduceFuelToMinimum = false;
+        pmp.ReduceFuelToMinimum = true;
         pmp.TryFixWrongThrust = true;
         pmp.TrajectoryColor = Color.blue;
         pmp.SetMissionOrigin(MissionInfo.EMissionCreator.Other);
+        pmp.ChangeStage(PlanMissionWindow.EStageWindow.Schedule);
         var transfer = GetTransferTypeForSpacecraft(providerOI, sc);
         // Moon-case routes (planet ↔ moon) use a slider, not a porkchop plot.
         // Setting ClickFastestButton on a moon case causes ButtonFastestClickButton
