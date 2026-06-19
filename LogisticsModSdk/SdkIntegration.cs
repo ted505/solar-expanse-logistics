@@ -657,7 +657,8 @@ internal static class SdkIntegration
         var quota = LogisticsNetwork.GetQuotaEntry(location, type.ID, true)
             ?? LogisticsNetwork.GetQuotaEntry(location, type.NameRocketType ?? "SC", true);
         var markers = new List<string>();
-        var reservedInRow = new HashSet<int>();
+        var pooledInRow = new HashSet<int>();
+        var assignedInRow = new HashSet<int>();
 
         if (quota != null && quota.count > 0)
         {
@@ -667,15 +668,17 @@ internal static class SdkIntegration
             {
                 var presentInRow = GetReadyShipIdsInStack(stack, location, type.ID, type.NameRocketType ?? "SC", excludeProviderAssigned: true);
                 for (var i = 0; i < presentInRow.Count && i < localReserved; i++)
-                    reservedInRow.Add(presentInRow[i]);
+                    pooledInRow.Add(presentInRow[i]);
             }
         }
 
         foreach (var shipId in GetProviderAssignedShipIdsInStack(stack, location, type.ID, type.NameRocketType ?? "SC"))
-            reservedInRow.Add(shipId);
+            assignedInRow.Add(shipId);
 
-        if (reservedInRow.Count > 0)
-            markers.Add($"<color=#7EC8FF>[LOGI {reservedInRow.Count} reserved]</color>");
+        if (pooledInRow.Count > 0)
+            markers.Add($"<color=#7EC8FF>[LOGI {pooledInRow.Count} pool]</color>");
+        if (assignedInRow.Count > 0)
+            markers.Add($"<color=#7EC8FF>[LOGI {assignedInRow.Count} assigned]</color>");
 
         var returnReserved = LogisticsObserver.GetReturnReservedSpacecraftCountAt(location, type.ID, type.NameRocketType ?? "SC");
         if (returnReserved > 0)

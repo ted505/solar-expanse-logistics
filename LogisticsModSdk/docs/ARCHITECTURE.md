@@ -112,7 +112,7 @@ Relay progress is tracked per-request via `RelayStage` enum. The relay final-leg
 - **Awake**: Injects `LogisticsUI` component onto `ObjectInfoWindow`.
 - **SetData**: Syncs logistics UI when the player switches bodies.
 - **RebuildLayout**: Triggers logistics layout rebuild.
-- **UIRowRocket.SetData**: Appends `[LOGI X reserved]` / `[LOGI X return]` markers to stock spacecraft rows.
+- **UIRowRocket.SetData**: Appends `[LOGI X pool]`, `[LOGI X assigned]`, and `[LOGI X return]` markers to stock spacecraft rows.
 
 ### SpaceCraftCyclicalMissionControllerPatches
 

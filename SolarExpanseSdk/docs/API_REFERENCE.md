@@ -347,7 +347,7 @@ ClearOwner(ownerTag)
 
 ### `HandOffToStockPlanner(...)`
 
-Sets up or creates a `SpaceCraftCyclicalMissionController` on the supplied spacecraft, calls `SetSC`, resets `CycleMissionPlanFlyWas`, and invokes stock `TryPlanCycleMission`. It registers carrier and mission-parameter correlation, marks code-job start/completion/failure, detects planner-not-started cases, and returns `SdkCycleHandoffResult`.
+Sets up or creates a `SpaceCraftCyclicalMissionController` on the supplied spacecraft, calls `SetSC`, resets `CycleMissionPlanFlyWas`, and invokes stock `TryPlanCycleMission`. It registers carrier and mission-parameter correlation, marks code-job start/completion/failure, detects planner-not-started cases, treats stock LOC waits behind an existing matching container mission as `Deferred`, and returns `SdkCycleHandoffResult`.
 
 - Mutates: stock spacecraft game object may receive a controller component; stock controller and cycle planning flags are mutated; SDK dispatch tracker is mutated.
 - Stock calls: `SpaceCraftCyclicalMissionController.SetSC`, `TryPlanCycleMission`.

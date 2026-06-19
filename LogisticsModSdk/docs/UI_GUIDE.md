@@ -88,6 +88,6 @@ All amounts use compact notation:
 
 ## Stock Integration
 
-- **Spacecraft rows**: Stock spacecraft list rows show `[LOGI X reserved]` (blue) for ships held by logistics quotas and `[LOGI X return]` (orange) for ships expected to return from logistics trips.
+- **Spacecraft rows**: Stock spacecraft list rows show `[LOGI X pool]` (blue) for ships available through a shared logistics quota, `[LOGI X assigned]` (blue) for ships assigned to a specific SEND provider, and `[LOGI X return]` (orange) for ships expected to return from logistics trips.
 - **Mission names**: Logistics missions appear in the stock mission list as `[LOGI] ResourceIcon` (outbound) and `[LOGI-RETURN]` (return trip).
 - **Notifications**: Cyclical arrival notifications are suppressed for logistics missions to reduce spam.

@@ -427,6 +427,15 @@ public sealed class SdkCyclicalMissions
             result.Started = cycle.wasSetPMParameterForCodeJobSystem || controller.CycleMissionPlanFlyWas || result.CallbackObserved;
             if (!result.Started)
             {
+                if (IsStockPlannerDeferredForLocContainer(spacecraft, cycle))
+                {
+                    result.Deferred = true;
+                    result.FailureCode = "planner-deferred-loc";
+                    result.FailureReason = "Stock LOC planner is waiting for an existing matching orbital-container mission.";
+                    _log?.Verbose("sdk.cycles", $"handoff-deferred requestId={result.DispatchId ?? "none"} context={context ?? "none"} route=\"{result.SourceName ?? "null"}->{result.TargetName ?? "null"}\" ship={spacecraft.ID} reason=existing-loc-mission");
+                    return result;
+                }
+
                 result.FailureCode = "planner-not-started";
                 result.FailureReason = "Stock cycle planner returned without setting planner state or creating a callback.";
                 _log?.Warning("sdk.cycles", $"handoff-not-started requestId={result.DispatchId ?? "none"} context={context ?? "none"} route=\"{result.SourceName ?? "null"}->{result.TargetName ?? "null"}\" ship={spacecraft.ID} phase={spacecraft.CurrentPhase} ctrlCMD={controller.CycleMissionsData != null} ctrlPlanFly={controller.CycleMissionPlanFlyWas} cmdWasSet={cycle.wasSetPMParameterForCodeJobSystem}");
@@ -448,6 +457,52 @@ public sealed class SdkCyclicalMissions
             onNotStarted?.Invoke(new SdkCycleHandoffFailureContext(result, null, cycle, result.FailureCode, result.FailureReason));
             return result;
         }
+    }
+
+    private static bool IsStockPlannerDeferredForLocContainer(Spacecraft spacecraft, CycleMissionsData cycle)
+    {
+        if (spacecraft == null || cycle == null || spacecraft.ID != -3)
+            return false;
+        if (spacecraft.GetTypeSpaceCraft()?.LowOrbitContainer != true)
+            return false;
+        if (cycle.A == null || cycle.B == null || cycle.cargoAllStart?.Tab == null || !cycle.cargoAllStart.Tab.Any())
+            return false;
+
+        var manager = MonoBehaviourSingleton<MissionInfoManager>.Instance;
+        var missions = manager?.ListMissionInfo;
+        if (missions == null)
+            return false;
+
+        foreach (var mission in missions)
+        {
+            if (mission == null || mission.cancel || mission.complete)
+                continue;
+            if (mission.company != spacecraft.GetCompany())
+                continue;
+            if (mission.missionCreator != MissionInfo.EMissionCreator.Cyclical)
+                continue;
+            if (mission.spacecraftInfo2 is not Spacecraft missionSc || missionSc.ID != -3)
+                continue;
+            if (mission.start != cycle.A || mission.target != cycle.B)
+                continue;
+            if (mission.cargoAll?.listCargo == null || !mission.cargoAll.listCargo.Any())
+                continue;
+
+            var allResourcesMatch = true;
+            foreach (var cargo in mission.cargoAll.listCargo)
+            {
+                if (cargo?.resourceType == null || !cycle.cargoAllStart.Tab.Contains(cargo.resourceType))
+                {
+                    allResourcesMatch = false;
+                    break;
+                }
+            }
+
+            if (allResourcesMatch)
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -777,6 +832,8 @@ public sealed class SdkCycleHandoffResult
     public bool StockCallReturned { get; set; }
     /// <summary>True when the stock code-job callback path ran.</summary>
     public bool CallbackObserved { get; set; }
+    /// <summary>True when stock intentionally deferred planning, such as LOC waiting for an existing matching LOC mission.</summary>
+    public bool Deferred { get; set; }
     /// <summary>Machine-readable failure code when handoff did not start.</summary>
     public string FailureCode { get; set; }
     /// <summary>Human-readable failure reason when handoff did not start.</summary>

@@ -6,6 +6,8 @@
 - Staged route candidate generation now reuses cached LV/container/final-carrier resolution and invalidates that cache after each recorded dispatch.
 - Staged LV candidates now cap source-surface lift by actual launch-support payload capacity, matching export-to-orbit behavior.
 - Added targeted `LV-STAGE` timing diagnostics around staged support resolution and final-carrier lookup.
+- SDK cycle handoff now treats stock LOC "waiting for existing container mission" returns as deferred rather than failed, preventing duplicate surface-to-orbit staging retries.
+- Stock spacecraft row markers now distinguish shared logistics pool ships from provider-assigned ships instead of labeling both as reserved.
 
 ---
 
