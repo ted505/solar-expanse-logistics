@@ -6,6 +6,7 @@ using Game;
 using Game.Info;
 using Game.ObjectInfoDataScripts;
 using Game.UI.Windows.Elements.PlanMissionElements;
+using Game.UI.Windows.Elements.PlanMissionElements.PMScheduleElements;
 using Manager;
 using ScriptableObjectScripts;
 
@@ -466,6 +467,124 @@ public sealed class SdkMissionLoadout
     }
 
     /// <summary>
+    /// Configures special fuel cargo so stock planning carries a protected return reserve.
+    /// </summary>
+    /// <remarks>
+    /// In <see cref="SdkReservePropellantMode.Fastest"/> mode this loads a full tank and expects
+    /// the fastest-search effective delta-v to be capped separately by
+    /// <see cref="SdkMissionPlanning.ApplyCodeFastestDeltaVCorrection(PMTabSchedule, string, double)"/>.
+    /// In <see cref="SdkReservePropellantMode.Optimal"/> mode this searches for the lowest loaded
+    /// fuel value that leaves at least <paramref name="desiredReserve"/> after stock recalculates
+    /// the current route. This mutates <c>parameter.CargoAll.cargoFuel</c> and may call stock
+    /// schedule validation to refresh fuel fields.
+    /// </remarks>
+    public SdkReservePropellantResult ConfigureProtectedReservePropellant(PMMissionParameter parameter,
+        ResourceDefinition fuelResource, double desiredReserve, SdkReservePropellantMode mode, string context = null)
+    {
+        var result = new SdkReservePropellantResult
+        {
+            Mode = mode,
+            DesiredReserve = Math.Max(0.0, desiredReserve)
+        };
+        var fuel = EnsureFuelCargo(parameter?.CargoAll);
+        if (fuel == null || parameter == null || fuelResource == null || desiredReserve <= 0.0)
+        {
+            result.FailureReason = "invalid-input";
+            return result;
+        }
+
+        var capacity = GetFuelCapacity(parameter);
+        result.TankCapacity = capacity;
+        if (capacity <= 0.0)
+        {
+            result.FailureReason = "no-fuel-capacity";
+            return result;
+        }
+
+        result.DesiredReserve = Math.Min(result.DesiredReserve, capacity);
+        fuel.objectInfo = parameter.Start;
+        fuel.resourceTypeType = EResourceTypeType.resorces;
+        fuel.resourceType = fuelResource;
+        parameter.ReduceFuelToMinimum = false;
+
+        if (mode == SdkReservePropellantMode.Fastest)
+        {
+            fuel.cargoMassPotencjal = capacity;
+            if (fuel.cargoMass > fuel.cargoMassPotencjal)
+                fuel.cargoMass = fuel.cargoMassPotencjal;
+            result.LoadedFuel = fuel.cargoMassPotencjal;
+            result.LeftOverFuel = parameter.LeftOverFuel;
+            result.Success = true;
+            _log?.Verbose("sdk.missionPlanning",
+                $"reserve-propellant-fastest context={context ?? "none"} route=\"{parameter.Start?.ObjectName ?? "null"}->{parameter.Target?.ObjectName ?? "null"}\" reserve={result.DesiredReserve:0.#} loaded={result.LoadedFuel:0.#} tank={capacity:0.#}");
+            return result;
+        }
+
+        var low = Math.Max(0.0, result.DesiredReserve);
+        var high = capacity;
+        var bestLoaded = -1.0;
+        var bestLeftOver = 0.0;
+        PMMissionParameter.EPlanMissionResult bestPlanResult = PMMissionParameter.EPlanMissionResult.None;
+
+        for (var i = 0; i < 14; i++)
+        {
+            var loaded = (low + high) / 2.0;
+            fuel.cargoMassPotencjal = loaded;
+            if (fuel.cargoMass > loaded)
+                fuel.cargoMass = loaded;
+
+            var check = parameter.CheckCanPlanMission().planMissionResult;
+            var leftOver = parameter.LeftOverFuel;
+            var ok = check == PMMissionParameter.EPlanMissionResult.AllOk
+                && leftOver + 0.001 >= result.DesiredReserve;
+            if (ok)
+            {
+                bestLoaded = loaded;
+                bestLeftOver = leftOver;
+                bestPlanResult = check;
+                high = loaded;
+            }
+            else
+            {
+                bestPlanResult = check;
+                low = loaded;
+            }
+        }
+
+        if (bestLoaded < 0.0)
+        {
+            fuel.cargoMassPotencjal = capacity;
+            if (fuel.cargoMass > capacity)
+                fuel.cargoMass = capacity;
+            bestPlanResult = parameter.CheckCanPlanMission().planMissionResult;
+            bestLoaded = capacity;
+            bestLeftOver = parameter.LeftOverFuel;
+        }
+        else
+        {
+            fuel.cargoMassPotencjal = bestLoaded;
+            if (fuel.cargoMass > bestLoaded)
+                fuel.cargoMass = bestLoaded;
+            bestPlanResult = parameter.CheckCanPlanMission().planMissionResult;
+            bestLeftOver = parameter.LeftOverFuel;
+        }
+
+        result.LoadedFuel = bestLoaded;
+        result.LeftOverFuel = bestLeftOver;
+        result.PlanResult = bestPlanResult.ToString();
+        result.Success = bestPlanResult == PMMissionParameter.EPlanMissionResult.AllOk
+            && bestLeftOver + 0.001 >= result.DesiredReserve;
+        if (!result.Success)
+            result.FailureReason = bestPlanResult == PMMissionParameter.EPlanMissionResult.AllOk
+                ? "reserve-not-met"
+                : bestPlanResult.ToString();
+
+        _log?.Verbose("sdk.missionPlanning",
+            $"reserve-propellant-optimal context={context ?? "none"} route=\"{parameter.Start?.ObjectName ?? "null"}->{parameter.Target?.ObjectName ?? "null"}\" reserve={result.DesiredReserve:0.#} loaded={result.LoadedFuel:0.#} leftOver={result.LeftOverFuel:0.#} tank={capacity:0.#} result={result.PlanResult ?? "none"} success={result.Success}");
+        return result;
+    }
+
+    /// <summary>
     /// Ensures loaded fuel is at least the requested amount.
     /// </summary>
     /// <remarks>This may mutate <c>parameter.CargoAll</c>.</remarks>
@@ -579,6 +698,17 @@ public sealed class SdkMissionLoadout
     }
 
     /// <summary>
+    /// Returns stock fuel tank capacity for a mission parameter, scaled by spacecraft count.
+    /// </summary>
+    public double GetFuelCapacity(PMMissionParameter parameter)
+    {
+        if (parameter?.SC?.GetTypeSpaceCraft() == null || parameter.FlyCompany == null)
+            return 0.0;
+
+        return parameter.SC.GetTypeSpaceCraft().GetFuelCapacity(parameter.FlyCompany) * Math.Max(1, parameter.SCCount);
+    }
+
+    /// <summary>
     /// Returns launch vehicle payload capacity for a start object and company using stock launch-vehicle type rules.
     /// </summary>
     public double GetLaunchVehiclePayload(ILaunchVehicleInfo launchVehicle, ObjectInfo start, Company company)
@@ -629,6 +759,8 @@ public sealed class SdkMissionLoadout
         AddFormattedCargo(cargo.listCargoToOrbit, parts, "orbit/");
         if (cargo.cargoFuel?.resourceType != null && cargo.cargoFuel.cargoMass > 0.0)
             parts.Add($"fuel/{cargo.cargoFuel.resourceType.ID}:{cargo.cargoFuel.cargoMass:0.#}");
+        if (cargo.cargoFuel?.resourceType != null && cargo.cargoFuel.cargoMassPotencjal > 0.0)
+            parts.Add($"fuelPotential/{cargo.cargoFuel.resourceType.ID}:{cargo.cargoFuel.cargoMassPotencjal:0.#}");
 
         return parts.Count == 0 ? "empty" : string.Join(",", parts);
     }
@@ -797,6 +929,40 @@ public sealed class SdkResourceShortfall
     public double Available { get; set; }
     /// <summary>Required minus available resource mass.</summary>
     public double Shortfall { get; set; }
+}
+
+/// <summary>
+/// Protected reserve planning mode for special fuel cargo.
+/// </summary>
+public enum SdkReservePropellantMode
+{
+    /// <summary>Load enough fuel for the current stock route to leave the requested reserve.</summary>
+    Optimal,
+    /// <summary>Load a full tank and cap fastest-search delta-v so the requested reserve remains protected.</summary>
+    Fastest
+}
+
+/// <summary>
+/// Result returned after configuring protected reserve propellant.
+/// </summary>
+public sealed class SdkReservePropellantResult
+{
+    /// <summary>Requested reserve mode.</summary>
+    public SdkReservePropellantMode Mode { get; set; }
+    /// <summary>Requested protected reserve fuel mass.</summary>
+    public double DesiredReserve { get; set; }
+    /// <summary>Loaded potential fuel selected by the SDK.</summary>
+    public double LoadedFuel { get; set; }
+    /// <summary>Stock leftover fuel after recalculation, when known.</summary>
+    public double LeftOverFuel { get; set; }
+    /// <summary>Available tank capacity.</summary>
+    public double TankCapacity { get; set; }
+    /// <summary>String form of stock plan result, when validation ran.</summary>
+    public string PlanResult { get; set; }
+    /// <summary>True when the SDK could configure a loadout expected to preserve the reserve.</summary>
+    public bool Success { get; set; }
+    /// <summary>Diagnostic reason when <see cref="Success"/> is false.</summary>
+    public string FailureReason { get; set; }
 }
 
 /// <summary>

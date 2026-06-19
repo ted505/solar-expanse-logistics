@@ -129,7 +129,7 @@ The SDK now owns several formerly local mission hooks:
 - Code-job planner preparation, callback-before cargo/name work, and callback-after diagnostics through `SdkIntegration` subscribers.
 - Arrival notification suppression through `SolarSdk.MissionPlanning.SuppressArrivalNotification`.
 - Self-launch override through `SolarSdk.MissionPlanning.CheckSelfLaunchOverride`.
-- Fastest-route delta-V correction through `SolarSdk.MissionPlanning.BeforeFastestSearch` and `ApplyCodeFastestDeltaVCorrection`.
+- Fastest-route delta-V correction through `SolarSdk.MissionPlanning.BeforeFastestSearch` and `ApplyCodeFastestDeltaVCorrection`, including protected reserve fuel so full-tank Fastest searches do not spend fuel reserved for the return leg.
 - Create-fly guard/logging through `SolarSdk.MissionPlanning.BeforeCreateFly` and `AfterCreateFly`.
 - Preview trajectory suppression through `SolarSdk.MissionPlanning.SuppressPreviewTrajectory`.
 - Mission completion cleanup through `SolarSdk.MissionPlanning.MissionCompleted`.
@@ -247,6 +247,8 @@ Cargo/fuel integration now uses SDK loadout primitives for reusable mechanics:
 - compact cargo manifest formatting.
 
 The intent is that any new LogisticsModSdk fuel/cargo behavior uses `SolarSdk.MissionLoadout` first. LogisticsModSdk should only keep code locally when it is logistics policy, such as return-fuel reserve amounts, backhaul priority, or provider/request thresholds.
+
+Return fuel reserves should use `SolarSdk.MissionLoadout.ConfigureProtectedReservePropellant` rather than ordinary resource cargo when the fuel is intended to ride in the spacecraft tank. For Optimal routes, the SDK asks stock validation for a loaded fuel amount that leaves the desired reserve. For Fastest routes, LogisticsModSdk passes the reserve to `ApplyCodeFastestDeltaVCorrection` so the porkchop search sees full-tank mass but only uses delta-v down to dry mass plus reserve.
 
 Dispatch boundary validation now runs through `SolarSdk.Missions.Validate(..., RunStockValidation = false)` before direct, LV/container, and return-home stock cycles are registered. This catches missing company/source/target/carrier/cargo, invalid synthetic carrier use, busy real ships, and obvious carrier cargo-capacity overflow while leaving stock route/fuel planning to the existing code-job path.
 

@@ -160,7 +160,7 @@ public sealed class SdkMissionPlanning
     /// This helper computes max delta-V from full fuel and pushes the schedule fuel UI to
     /// max so stock fastest search has a valid search envelope.
     /// </remarks>
-    public bool ApplyCodeFastestDeltaVCorrection(PMTabSchedule schedule, string context = null)
+    public bool ApplyCodeFastestDeltaVCorrection(PMTabSchedule schedule, string context = null, double protectedReserveFuel = 0.0)
     {
         var pmp = schedule?.PlanMissionWindow?.PMMissionParameter;
         if (schedule?.PlanMissionWindow == null || !schedule.PlanMissionWindow.ForCode)
@@ -177,10 +177,12 @@ public sealed class SdkMissionPlanning
         var dryMass = (double)pmp.SC.GetMass() + cargoMass;
         var maxFuelCapacity = scType.GetFuelCapacity(pmp.FlyCompany) * Math.Max(1, pmp.SCCount);
         var wetMass = dryMass + (double)maxFuelCapacity;
-        if (wetMass <= dryMass || dryMass <= 0 || exhaustV <= 0)
+        var protectedReserve = Math.Max(0.0, Math.Min(protectedReserveFuel, maxFuelCapacity));
+        var terminalMass = dryMass + protectedReserve;
+        if (wetMass <= terminalMass || dryMass <= 0 || exhaustV <= 0)
             return false;
 
-        var effectiveDeltaV = (int)((double)exhaustV * Math.Log(wetMass / dryMass, Math.E));
+        var effectiveDeltaV = (int)((double)exhaustV * Math.Log(wetMass / terminalMass, Math.E));
         schedule.porkchop.SetEffectiveDeltaV(effectiveDeltaV);
 
         var fuelUI = Traverse.Create(schedule).Field("fuelSpaceCraftUI").GetValue<FuelSpaceCraftUI>();
@@ -191,7 +193,7 @@ public sealed class SdkMissionPlanning
         }
 
         _log?.Verbose("sdk.missionPlanning",
-            $"fastest-dv-correction context={context ?? "none"} route=\"{pmp.Start?.ObjectName ?? "null"}->{pmp.Target?.ObjectName ?? "null"}\" effectiveDV={effectiveDeltaV} exhaustV={exhaustV:0.#} dryMass={dryMass:0.#} cargoMass={cargoMass:0.#} fuelCap={maxFuelCapacity:0.#} wetMass={wetMass:0.#}");
+            $"fastest-dv-correction context={context ?? "none"} route=\"{pmp.Start?.ObjectName ?? "null"}->{pmp.Target?.ObjectName ?? "null"}\" effectiveDV={effectiveDeltaV} exhaustV={exhaustV:0.#} dryMass={dryMass:0.#} cargoMass={cargoMass:0.#} fuelCap={maxFuelCapacity:0.#} protectedReserve={protectedReserve:0.#} wetMass={wetMass:0.#} terminalMass={terminalMass:0.#}");
         return true;
     }
 

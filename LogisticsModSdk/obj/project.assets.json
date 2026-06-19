@@ -436,11 +436,11 @@
   "project": {
     "version": "0.3.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\parft\\Documents\\SolarExpanseMods\\LogisticsModSdk\\LogisticsModSdk.csproj",
+      "projectUniqueName": "C:\\Users\\parft\\Documents\\SolarExpanseMods\\solar-expanse-logistics\\LogisticsModSdk\\LogisticsModSdk.csproj",
       "projectName": "LogisticsModSdk",
-      "projectPath": "C:\\Users\\parft\\Documents\\SolarExpanseMods\\LogisticsModSdk\\LogisticsModSdk.csproj",
+      "projectPath": "C:\\Users\\parft\\Documents\\SolarExpanseMods\\solar-expanse-logistics\\LogisticsModSdk\\LogisticsModSdk.csproj",
       "packagesPath": "C:\\Users\\parft\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\parft\\Documents\\SolarExpanseMods\\LogisticsModSdk\\obj\\",
+      "outputPath": "C:\\Users\\parft\\Documents\\SolarExpanseMods\\solar-expanse-logistics\\LogisticsModSdk\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\parft\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -455,8 +455,8 @@
         "net472": {
           "targetAlias": "net472",
           "projectReferences": {
-            "C:\\Users\\parft\\Documents\\SolarExpanseMods\\SolarExpanseSdk\\SolarExpanseSdk.csproj": {
-              "projectPath": "C:\\Users\\parft\\Documents\\SolarExpanseMods\\SolarExpanseSdk\\SolarExpanseSdk.csproj"
+            "C:\\Users\\parft\\Documents\\SolarExpanseMods\\solar-expanse-logistics\\SolarExpanseSdk\\SolarExpanseSdk.csproj": {
+              "projectPath": "C:\\Users\\parft\\Documents\\SolarExpanseMods\\solar-expanse-logistics\\SolarExpanseSdk\\SolarExpanseSdk.csproj"
             }
           }
         }

@@ -28,9 +28,10 @@ public static partial class LogisticsObserver
         if (CanSkipPlannerCapCheckForSimpleLocLaunch(pmp))
             return;
 
+        ApplyProtectedReturnFuelReserve(pmp, IsFastestProtectedReservePlan(pmp)
+            ? SdkReservePropellantMode.Fastest
+            : SdkReservePropellantMode.Optimal);
         var result = pmp.CheckCanPlanMission().planMissionResult;
-        if (ApplySmallReservePropellant(pmp))
-            result = pmp.CheckCanPlanMission().planMissionResult;
 
         if (VerboseLoggingEnabled)
         {
@@ -188,33 +189,95 @@ public static partial class LogisticsObserver
         }
     }
 
-    private static bool ApplySmallReservePropellant(PMMissionParameter pmp)
+    public static double GetProtectedReturnFuelReserve(PMMissionParameter pmp)
     {
-        if (!ReturnFuelEnabled() || pmp?.CargoAll?.cargoFuel == null || pmp.SC == null || pmp.FlyCompany == null)
+        if (pmp == null)
+            return 0.0;
+        if (_protectedReturnReserveByParameter.TryGetValue(pmp, out var existing) && existing > 0.0)
+            return existing;
+        if (pmp.CargoAll != null && _protectedReturnReserveByCargo.TryGetValue(pmp.CargoAll, out var cargoReserve) && cargoReserve > 0.0)
+            return cargoReserve;
+        if (pmp.SC is Spacecraft sc)
+        {
+            var cycle = MonoBehaviourSingleton<CycleMissionManager>.Instance?.GetCycleMission(sc);
+            if (cycle != null && _protectedReturnReserveByCycle.TryGetValue(cycle, out var cycleReserve) && cycleReserve > 0.0)
+                return cycleReserve;
+        }
+        return 0.0;
+    }
+
+    private static void RegisterProtectedReturnFuelReserve(CycleMissionsData cycle, CargoAll cargoAll, double reserveFuel)
+    {
+        if (reserveFuel <= 0.0)
+            return;
+
+        if (cargoAll != null)
+            _protectedReturnReserveByCargo[cargoAll] = reserveFuel;
+        if (cycle != null)
+            _protectedReturnReserveByCycle[cycle] = reserveFuel;
+    }
+
+    public static bool ApplyProtectedReturnFuelReserve(PMMissionParameter pmp, SdkReservePropellantMode mode)
+    {
+        var desiredReserve = GetProtectedReturnFuelReserve(pmp);
+        if (!ReturnFuelEnabled() || desiredReserve <= 0.0 || pmp?.CargoAll?.cargoFuel == null || pmp.SC == null || pmp.FlyCompany == null)
             return false;
 
-        var fuelType = pmp.FuelNeedToStart;
         var scType = pmp.SC.GetTypeSpaceCraft();
+        var fuelType = pmp.FuelNeedToStart ?? pmp.CargoAll.cargoFuel.resourceType ?? scType?.GetFuelType();
         if (fuelType == null || scType == null || scType.SolarSC)
             return false;
 
-        var minFuel = pmp.MINFuelCost > 0 ? pmp.MINFuelCost : pmp.AllFuelNeed;
-        if (minFuel <= 0)
+        var result = SolarSdk.MissionLoadout.ConfigureProtectedReservePropellant(
+            pmp, fuelType, desiredReserve, mode, "logistics-return-fuel");
+        _protectedReturnReserveByParameter[pmp] = result.DesiredReserve;
+
+        if (result.Success)
+        {
+            LogVerbose($"RETURNFUEL protected-reserve: mode={mode} route={pmp.Start?.ObjectName}->{pmp.Target?.ObjectName} ship={scType.NameRocketType} fuel={fuelType.ID} reserve={result.DesiredReserve:0.#} loaded={result.LoadedFuel:0.#} leftOver={result.LeftOverFuel:0.#} tank={result.TankCapacity:0.#} normalCargo={pmp.CargoAll.CargoCurrent:0.#} reduceFuelToMinimum={pmp.ReduceFuelToMinimum}");
+            return true;
+        }
+
+        LogWarning($"RETURNFUEL protected-reserve-failed: mode={mode} route={pmp.Start?.ObjectName}->{pmp.Target?.ObjectName} ship={scType.NameRocketType} fuel={fuelType.ID} reserve={result.DesiredReserve:0.#} loaded={result.LoadedFuel:0.#} leftOver={result.LeftOverFuel:0.#} tank={result.TankCapacity:0.#} result={result.PlanResult ?? "none"} reason={result.FailureReason ?? "unknown"}");
+        return false;
+    }
+
+    public static bool VerifyProtectedReturnFuelReserve(PMMissionParameter pmp, out string failureReason)
+    {
+        failureReason = null;
+        var desiredReserve = GetProtectedReturnFuelReserve(pmp);
+        if (desiredReserve <= 0.0)
+            return true;
+
+        if (pmp == null)
+        {
+            failureReason = "Missing mission parameter for protected return fuel";
             return false;
+        }
 
-        var tankCapacity = scType.GetFuelCapacity(pmp.FlyCompany) * Math.Max(1, pmp.SCCount);
-        var targetPropellant = Math.Min(tankCapacity, Math.Ceiling(minFuel * ReservePropellantMultiplier));
-        if (targetPropellant <= 0)
-            return false;
+        if (pmp.LeftOverFuel + 0.001 >= desiredReserve)
+            return true;
 
-        var currentTarget = pmp.CargoAll.cargoFuel.cargoMassPotencjal;
-        if (currentTarget >= targetPropellant)
-            return false;
+        failureReason = $"Return fuel reserve not preserved: leftover {pmp.LeftOverFuel:0.#}/{desiredReserve:0.#}";
+        return false;
+    }
 
-        SolarSdk.MissionLoadout.ConfigureReservePropellant(pmp, fuelType, targetPropellant);
+    public static void ClearProtectedReturnFuelReserve(PMMissionParameter pmp)
+    {
+        if (pmp == null)
+            return;
 
-        LogVerbose($"RETURNFUEL reserve-propellant: route={pmp.Start?.ObjectName}->{pmp.Target?.ObjectName} ship={scType.NameRocketType} fuel={fuelType.ID} allFuel={pmp.AllFuelNeed:0.#} minFuel={pmp.MINFuelCost:0.#} targetPropellant={targetPropellant:0.#} tank={tankCapacity:0.#} normalCargo={pmp.CargoAll.CargoCurrent:0.#} reduceFuelToMinimum={pmp.ReduceFuelToMinimum}");
-        return true;
+        _protectedReturnReserveByParameter.Remove(pmp);
+        if (pmp.CargoAll != null)
+            _protectedReturnReserveByCargo.Remove(pmp.CargoAll);
+    }
+
+    private static bool IsFastestProtectedReservePlan(PMMissionParameter pmp)
+    {
+        return pmp != null
+            && (pmp.ClickFastestButton
+                || pmp.TryFastAsPossible
+                || pmp.TransferTypeMoonCase == ETransferType.Fastest);
     }
 
     private static List<Cargo> GetResourceCargoItems(CargoAll cargoAll)
@@ -531,29 +594,22 @@ public static partial class LogisticsObserver
         }
 
         var providerFuelAvailable = GetProviderAvailableAfterMinimum(providerOI, fuelType, player);
-        var maxFuelCargo = capacity * MaxReturnFuelCargoDisplacementFraction;
-        var maxAdditionalFuelCargo = Math.Max(0, maxFuelCargo - existingFuelCargo);
-        var fuelToAdd = Math.Min(shortfall, Math.Min(providerFuelAvailable, maxAdditionalFuelCargo));
-        LogVerbose($"RETURNFUEL manifest-calc: route={providerOI?.ObjectName}->{requesterOI?.ObjectName} ship={sc?.GetSpacecraftName() ?? "null"} fuel={fuelType.ID} reserve={requiredReserve:0.#} destStock={destinationStock:0.#} existingFuelCargo={existingFuelCargo:0.#} shortfall={shortfall:0.#} providerFuel={providerFuelAvailable:0.#} capacity={capacity:0.#} maxFuelCargo={maxFuelCargo:0.#} plannedFuelAdd={fuelToAdd:0.#} before={FormatCargo(cargoAll)}");
-        double reduced = 0;
+        var reserveScType = sc?.GetTypeSpaceCraft();
+        var tankCapacity = reserveScType == null ? 0.0 : reserveScType.GetFuelCapacity(player);
+        var fuelToProtect = Math.Min(shortfall, Math.Min(providerFuelAvailable, tankCapacity));
+        LogVerbose($"RETURNFUEL manifest-calc: route={providerOI?.ObjectName}->{requesterOI?.ObjectName} ship={sc?.GetSpacecraftName() ?? "null"} fuel={fuelType.ID} reserve={requiredReserve:0.#} destStock={destinationStock:0.#} existingFuelCargo={existingFuelCargo:0.#} shortfall={shortfall:0.#} providerFuel={providerFuelAvailable:0.#} tank={tankCapacity:0.#} protectedFuel={fuelToProtect:0.#} before={FormatCargo(cargoAll)}");
 
-        var freeCapacity = Math.Max(0, capacity - cargoAll.CargoCurrent);
-        if (fuelToAdd > freeCapacity)
+        if (fuelToProtect > 0)
         {
-            var displacementNeeded = fuelToAdd - freeCapacity;
-            reduced = ReduceNonFuelCargo(cargoAll, fuelType, displacementNeeded);
+            cargoAll.cargoFuel.objectInfo = providerOI;
+            cargoAll.cargoFuel.resourceTypeType = EResourceTypeType.resorces;
+            cargoAll.cargoFuel.resourceType = fuelType;
+            cargoAll.cargoFuel.cargoMassPotencjal = fuelToProtect;
+            reserveFuelCargo = fuelToProtect;
+            _protectedReturnReserveByCargo[cargoAll] = fuelToProtect;
         }
 
-        freeCapacity = Math.Max(0, capacity - cargoAll.CargoCurrent);
-        fuelToAdd = Math.Min(fuelToAdd, freeCapacity);
-        if (fuelToAdd > 0)
-        {
-            AddOrIncreaseResourceCargo(cargoAll, fuelType, fuelToAdd);
-            reserveFuelCargo = fuelToAdd;
-        }
-
-        existingFuelCargo = CargoAmountFor(cargoAll, fuelType);
-        var remainingShortfall = Math.Max(0, requiredReserve - destinationStock - existingFuelCargo);
+        var remainingShortfall = Math.Max(0, shortfall - reserveFuelCargo);
         if (remainingShortfall > 0)
         {
             blockedFuelType = fuelType;
@@ -567,10 +623,10 @@ public static partial class LogisticsObserver
         if (normalCargo <= 0)
         {
             if (VerboseLoggingEnabled)
-                LogWarning($"RETURNFUEL no-request-cargo-left: route={providerOI?.ObjectName}->{requesterOI?.ObjectName} rd={rd.ID} fuel={fuelType.ID} fuelAdded={reserveFuelCargo:0.#} reducedCargo={reduced:0.#} manifest={FormatCargo(cargoAll)}");
+                LogWarning($"RETURNFUEL no-request-cargo-left: route={providerOI?.ObjectName}->{requesterOI?.ObjectName} rd={rd.ID} fuel={fuelType.ID} protectedFuel={reserveFuelCargo:0.#} manifest={FormatCargo(cargoAll)}");
             return false;
         }
-        LogVerbose($"RETURNFUEL ship-reserve-manifest: route={providerOI?.ObjectName}->{requesterOI?.ObjectName} ship={sc?.GetSpacecraftName() ?? "null"} scType={sc?.spacecraftType?.NameRocketType} fuel={fuelType.ID} reserve={requiredReserve:0.#} destStock={destinationStock:0.#} fuelAdded={reserveFuelCargo:0.#} reducedCargo={reduced:0.#} normalCargo={normalCargo:0.#} manifest={FormatCargo(cargoAll)}");
+        LogVerbose($"RETURNFUEL ship-reserve-manifest: route={providerOI?.ObjectName}->{requesterOI?.ObjectName} ship={sc?.GetSpacecraftName() ?? "null"} scType={sc?.spacecraftType?.NameRocketType} fuel={fuelType.ID} reserve={requiredReserve:0.#} destStock={destinationStock:0.#} protectedFuel={reserveFuelCargo:0.#} normalCargo={normalCargo:0.#} manifest={FormatCargo(cargoAll)}");
         return cargoAll.CargoCurrent > 0;
     }
 

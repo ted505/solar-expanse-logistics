@@ -75,6 +75,12 @@ public static partial class LogisticsObserver
 
     private static readonly Queue<string> _returnFuelProbeCacheOrder = new Queue<string>();
 
+    private static readonly Dictionary<CargoAll, double> _protectedReturnReserveByCargo = new Dictionary<CargoAll, double>();
+
+    private static readonly Dictionary<CycleMissionsData, double> _protectedReturnReserveByCycle = new Dictionary<CycleMissionsData, double>();
+
+    private static readonly Dictionary<PMMissionParameter, double> _protectedReturnReserveByParameter = new Dictionary<PMMissionParameter, double>();
+
     private static readonly Dictionary<string, DateTime> _routePlanningLocks = new Dictionary<string, DateTime>();
 
     private static readonly Dictionary<string, double> _committedStock = new Dictionary<string, double>();
@@ -392,6 +398,9 @@ public static partial class LogisticsObserver
         var returnCount = _returnHomeByShipId.Count;
         var failCount = _cyclePlanningFailures.Count;
         var fuelProbeCount = _returnFuelProbeCache.Count;
+        var protectedReserveCargoCount = _protectedReturnReserveByCargo.Count;
+        var protectedReserveCycleCount = _protectedReturnReserveByCycle.Count;
+        var protectedReserveCount = _protectedReturnReserveByParameter.Count;
         var routeLockCount = _routePlanningLocks.Count;
         var committedCount = _committedStock.Count;
         var throttleCount = _requestPlanThrottle.Count;
@@ -404,6 +413,9 @@ public static partial class LogisticsObserver
         _returnHomeByShipId.Clear();
         _returnFuelProbeCache.Clear();
         _returnFuelProbeCacheOrder.Clear();
+        _protectedReturnReserveByCargo.Clear();
+        _protectedReturnReserveByCycle.Clear();
+        _protectedReturnReserveByParameter.Clear();
         _routePlanningLocks.Clear();
         _committedStock.Clear();
         _requestPlanThrottle.Clear();
@@ -419,7 +431,7 @@ public static partial class LogisticsObserver
         _nextCompletedTrajectoryScan = default;
         _nextOrphanTrajectoryScan = default;
         if (VerboseLoggingEnabled)
-            LogVerbose($"RESET runtime-state: cycles={cycleCount} pending={pendingCount} returns={returnCount} failures={failCount} fuelProbes={fuelProbeCount} routeLocks={routeLockCount} committed={committedCount} throttles={throttleCount} precalc={precalcCount} routeTiers={routeTierCount} knownMissions={knownMissionCount}");
+            LogVerbose($"RESET runtime-state: cycles={cycleCount} pending={pendingCount} returns={returnCount} failures={failCount} fuelProbes={fuelProbeCount} protectedReserveCargo={protectedReserveCargoCount} protectedReserveCycles={protectedReserveCycleCount} protectedReserves={protectedReserveCount} routeLocks={routeLockCount} committed={committedCount} throttles={throttleCount} precalc={precalcCount} routeTiers={routeTierCount} knownMissions={knownMissionCount}");
     }
 
     public static object BuildSdkDebugSnapshot()

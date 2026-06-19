@@ -178,6 +178,7 @@ SolarSdk.MissionLoadout.GetLoadedFuel(PMMissionParameter parameter)
 SolarSdk.MissionLoadout.GetPotentialFuel(PMMissionParameter parameter)
 SolarSdk.MissionLoadout.SetLoadedFuel(PMMissionParameter parameter, double amount)
 SolarSdk.MissionLoadout.SetPotentialFuel(PMMissionParameter parameter, double amount)
+SolarSdk.MissionLoadout.ConfigureProtectedReservePropellant(PMMissionParameter parameter, ResourceDefinition fuelResource, double desiredReserve, SdkReservePropellantMode mode, string context = null)
 SolarSdk.MissionLoadout.EnsureMinimumFuel(PMMissionParameter parameter, double amount)
 SolarSdk.MissionLoadout.CapFuelToPotential(PMMissionParameter parameter)
 SolarSdk.MissionLoadout.GetFuelShortfall(PMMissionParameter parameter)
@@ -195,6 +196,8 @@ Stock surfaces:
 - `PMMissionParameter.CargoAll.cargoFuel`
 - `PMMissionParameter.CheckCanPlanMission`
 - `ObjectInfoData.CheckResources`
+
+`ConfigureProtectedReservePropellant` is for reserve fuel that should ride in the spacecraft tank rather than ordinary cargo. `Optimal` mode searches for a loaded fuel amount that leaves the requested reserve after stock recalculates the current route. `Fastest` mode loads a full tank; pair it with `SolarSdk.MissionPlanning.ApplyCodeFastestDeltaVCorrection(..., protectedReserveFuel)` so the porkchop search treats the reserve as mass but not burnable delta-v.
 
 ### 5. Loadout: Crew, Supply, Life Support - Partial
 

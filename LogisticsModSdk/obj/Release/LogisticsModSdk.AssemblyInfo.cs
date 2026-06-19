@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("SDK-based Logistics Tab mod for Solar Expanse")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("0.3.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.3.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.3.0+033a99fdac0c49378f28b0464dd13743dbbc2450")]
 [assembly: System.Reflection.AssemblyProductAttribute("LogisticsModSdk")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LogisticsModSdk")]
 [assembly: System.Reflection.AssemblyVersionAttribute("0.3.0.0")]

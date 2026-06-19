@@ -187,6 +187,7 @@ Mutation helpers:
 SetLoadedFuel(PMMissionParameter parameter, double amount)
 SetPotentialFuel(PMMissionParameter parameter, double amount)
 ConfigureReservePropellant(PMMissionParameter parameter, ResourceDefinition fuelResource, double targetPropellant, bool disableReduceFuelToMinimum = true)
+ConfigureProtectedReservePropellant(PMMissionParameter parameter, ResourceDefinition fuelResource, double desiredReserve, SdkReservePropellantMode mode, string context = null)
 EnsureMinimumFuel(PMMissionParameter parameter, double amount)
 CapFuelToPotential(PMMissionParameter parameter)
 StageFuelAsCargo(PMMissionParameter parameter, double amount)
@@ -195,7 +196,8 @@ StageFuelAsCargo(PMMissionParameter parameter, double amount)
 - Mutates: `parameter.CargoAll.cargoFuel` or `parameter.CargoAll.listCargo`.
 - Stock calls: fuel resource lookup for `GetFuelResource`/fuel creation.
 - Requires loaded game: yes.
-- Caution: these helpers do not rerun stock planner validation automatically.
+- Caution: most helpers do not rerun stock planner validation automatically. `ConfigureProtectedReservePropellant` may call stock validation in `Optimal` mode to find the lowest loaded fuel that preserves the requested leftover reserve.
+- Protected reserve modes: `Optimal` loads enough special fuel for the current route to leave `desiredReserve`; `Fastest` loads a full tank and pairs with fastest delta-v protection so the route search cannot spend the reserve.
 
 ### Crew, Supply, Life Support
 
@@ -263,7 +265,7 @@ Important behavior:
 
 - `BeforeCodeJobPlan` is raised from `GameManager.SetPMParameterForCodeJobSystem` prefix.
 - `BeforeFastestSearch` and `AfterFastestSearch` are raised around `PMTabSchedule.ButtonFastestClickButton`.
-- `ApplyCodeFastestDeltaVCorrection` fixes stock ForCode fastest-search delta-V initialization.
+- `ApplyCodeFastestDeltaVCorrection(schedule, context, protectedReserveFuel)` fixes stock ForCode fastest-search delta-V initialization. When `protectedReserveFuel > 0`, the effective delta-v is computed from full tank mass down to dry mass plus protected reserve, so Fastest searches cannot consume that reserve.
 - `BeforeCreateFly` can suppress stock launch creation for invalid tagged plans.
 - `SuppressPreviewTrajectory` can skip stock preview trajectory creation.
 - `MissionCompleted` runs after `MissionInfo.Complete`.

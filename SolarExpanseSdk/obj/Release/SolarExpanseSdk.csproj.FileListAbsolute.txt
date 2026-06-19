@@ -7,3 +7,11 @@ C:\Program Files (x86)\Steam\steamapps\common\Solar Expanse\BepInEx\plugins\sola
 C:\Program Files (x86)\Steam\steamapps\common\Solar Expanse\BepInEx\plugins\solarexpansesdk\SolarExpanseSdk.pdb
 C:\Users\parft\Documents\SolarExpanseMods\SolarExpanseSdk\obj\Release\SolarExpanseSdk.dll
 C:\Users\parft\Documents\SolarExpanseMods\SolarExpanseSdk\obj\Release\SolarExpanseSdk.pdb
+C:\Users\parft\Documents\SolarExpanseMods\solar-expanse-logistics\SolarExpanseSdk\obj\Release\SolarExpanseSdk.csproj.AssemblyReference.cache
+C:\Users\parft\Documents\SolarExpanseMods\solar-expanse-logistics\SolarExpanseSdk\obj\Release\SolarExpanseSdk.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\parft\Documents\SolarExpanseMods\solar-expanse-logistics\SolarExpanseSdk\obj\Release\SolarExpanseSdk.AssemblyInfoInputs.cache
+C:\Users\parft\Documents\SolarExpanseMods\solar-expanse-logistics\SolarExpanseSdk\obj\Release\SolarExpanseSdk.AssemblyInfo.cs
+C:\Users\parft\Documents\SolarExpanseMods\solar-expanse-logistics\SolarExpanseSdk\obj\Release\SolarExpanseSdk.csproj.CoreCompileInputs.cache
+C:\Users\parft\Documents\SolarExpanseMods\solar-expanse-logistics\SolarExpanseSdk\obj\Release\SolarExpanseSdk.sourcelink.json
+C:\Users\parft\Documents\SolarExpanseMods\solar-expanse-logistics\SolarExpanseSdk\obj\Release\SolarExpanseSdk.dll
+C:\Users\parft\Documents\SolarExpanseMods\solar-expanse-logistics\SolarExpanseSdk\obj\Release\SolarExpanseSdk.pdb

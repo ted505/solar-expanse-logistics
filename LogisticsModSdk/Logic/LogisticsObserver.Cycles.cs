@@ -429,6 +429,7 @@ public static partial class LogisticsObserver
                     SolarSdk.Fleet.ReleaseSpacecraft(sc.ID, SdkReservationOwner);
             }
         }
+        _protectedReturnReserveByCycle.Remove(cmd);
         UnregisterLogisticsCycleName(cmd);
         cm.RemoveCycleMission(cmd);
     }
@@ -834,6 +835,7 @@ public static partial class LogisticsObserver
 
         var cmd = cycleResult.Cycle;
         var dispatchId = cycleResult.DispatchId;
+        RegisterProtectedReturnFuelReserve(cmd, cargoToB, reserveFuelCargo);
         _cycleCreatedAt[cmd] = MonoBehaviourSingleton<TimeController>.Instance?.CurrentTime ?? DateTime.Now;
         MarkPendingPlanningDelivery(pendingTargetOI ?? requesterOI, rd);
         MarkShipForReturn(sc, realProvider, requesterOI, rd);
@@ -992,6 +994,7 @@ public static partial class LogisticsObserver
 
         var cmd = cycleResult.Cycle;
         var dispatchId = cycleResult.DispatchId;
+        RegisterProtectedReturnFuelReserve(cmd, cargoToB, reserveFuelCargo);
         _cycleCreatedAt[cmd] = MonoBehaviourSingleton<TimeController>.Instance?.CurrentTime ?? DateTime.Now;
         MarkPendingPlanningDelivery(pendingTargetOI ?? requesterOI, rd);
         MarkShipForReturn(container, realProvider, requesterOI, rd);

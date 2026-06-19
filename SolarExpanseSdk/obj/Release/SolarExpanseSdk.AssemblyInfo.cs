@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("Shared modding SDK services for Solar Expanse")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("0.1.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.1.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.1.0+033a99fdac0c49378f28b0464dd13743dbbc2450")]
 [assembly: System.Reflection.AssemblyProductAttribute("SolarExpanseSdk")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SolarExpanseSdk")]
 [assembly: System.Reflection.AssemblyVersionAttribute("0.1.0.0")]

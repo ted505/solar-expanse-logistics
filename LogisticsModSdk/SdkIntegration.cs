@@ -204,10 +204,15 @@ internal static class SdkIntegration
         if (!Logic.LogisticsObserver.IsLogisticsPlan(parameter))
             return;
 
-        if (SolarSdk.MissionPlanning.ApplyCodeFastestDeltaVCorrection(schedule, "logistics-fastest"))
+        var protectedReserve = Logic.LogisticsObserver.GetProtectedReturnFuelReserve(parameter);
+        if (protectedReserve > 0.0)
+            Logic.LogisticsObserver.ApplyProtectedReturnFuelReserve(parameter, SdkReservePropellantMode.Fastest);
+
+        if (SolarSdk.MissionPlanning.ApplyCodeFastestDeltaVCorrection(schedule, "logistics-fastest", protectedReserve))
         {
             Logic.LogisticsObserver.LogVerbose(
                 $"FASTEST-PREFIX: dispatchId={context?.DispatchId ?? "none"} route={parameter.Start?.ObjectName ?? "null"}->{parameter.Target?.ObjectName ?? "null"} " +
+                $"protectedReserve={protectedReserve:0.#} " +
                 $"sc={DescribeSpacecraft(parameter.SC)} moonCase={parameter.MoonCase} transferTypeMC={parameter.TransferTypeMoonCase} " +
                 $"clickFastest={parameter.ClickFastestButton} tryFast={parameter.TryFastAsPossible}");
         }
@@ -229,6 +234,20 @@ internal static class SdkIntegration
 
         var found = SolarSdk.MissionTags.ResolveName(parameter);
         var missionName = found ?? parameter?.MissionName;
+        if (!Logic.LogisticsObserver.VerifyProtectedReturnFuelReserve(parameter, out var reserveFailure))
+        {
+            var sc = parameter.SC as Spacecraft;
+            var cmd = sc == null ? null : MonoBehaviourSingleton<CycleMissionManager>.Instance?.GetCycleMission(sc);
+            Logic.LogisticsObserver.LogWarning(
+                $"PLAN blocked-return-fuel-reserve: reason=\"{reserveFailure}\" " +
+                $"route={parameter.Start?.ObjectName ?? "null"}->{parameter.Target?.ObjectName ?? "null"} " +
+                $"sc={DescribeSpacecraft(parameter.SC)} cargo={SolarSdk.MissionLoadout.FormatCargo(parameter.CargoAll)}");
+            if (cmd != null)
+                Logic.LogisticsObserver.RemoveLogisticsCycle(MonoBehaviourSingleton<CycleMissionManager>.Instance, cmd);
+            context.SuppressReason = "return-fuel-reserve-not-preserved";
+            return true;
+        }
+
         if (parameter != null
             && !string.IsNullOrEmpty(missionName)
             && missionName.StartsWith("[LOGI]", StringComparison.Ordinal)
@@ -255,6 +274,16 @@ internal static class SdkIntegration
 
         if (parameter != null && !string.IsNullOrEmpty(missionName) && missionName.StartsWith("[LOGI", StringComparison.Ordinal))
         {
+            var protectedReserve = Logic.LogisticsObserver.GetProtectedReturnFuelReserve(parameter);
+            if (protectedReserve > 0.0)
+            {
+                Logic.LogisticsObserver.LogVerbose(
+                    $"RETURNFUEL launch-check: name=\"{missionName}\" route={parameter.Start?.ObjectName ?? "null"}->{parameter.Target?.ObjectName ?? "null"} " +
+                    $"reserve={protectedReserve:0.#} leftOver={parameter.LeftOverFuel:0.#} loadedPotential={parameter.CargoAll?.cargoFuel?.cargoMassPotencjal ?? 0:0.#} " +
+                    $"allFuel={parameter.AllFuelNeed:0.#} minFuel={parameter.MINFuelCost:0.#} fuelNeed={parameter.FuelNeed:0.#} " +
+                    $"cargo={SolarSdk.MissionLoadout.FormatCargo(parameter.CargoAll)} sc={DescribeSpacecraft(parameter.SC)}");
+            }
+
             Logic.LogisticsObserver.LogVerbose(
                 $"LOGI-LAUNCH createfly-prefix: name=\"{missionName}\" route={parameter.Start?.ObjectName ?? "null"}->{parameter.Target?.ObjectName ?? "null"} payload={parameter.CargoAll?.CargoCurrent ?? 0:0.#} cargo={SolarSdk.MissionLoadout.FormatCargo(parameter.CargoAll)} sc={DescribeSpacecraft(parameter.SC)}");
         }
@@ -284,6 +313,7 @@ internal static class SdkIntegration
             $"sc={DescribeSpacecraft(parameter.SC)} route={parameter.Start?.ObjectName ?? "null"}->{parameter.Target?.ObjectName ?? "null"}");
         Logic.LogisticsObserver.LogVerbose(
             $"LOGI-LAUNCH createfly-postfix: pmpName=\"{parameter.MissionName}\" route={parameter.Start?.ObjectName ?? "null"}->{parameter.Target?.ObjectName ?? "null"} payload={parameter.CargoAll?.CargoCurrent ?? 0:0.#} cargo={SolarSdk.MissionLoadout.FormatCargo(parameter.CargoAll)} sc={DescribeSpacecraft(parameter.SC)}");
+        Logic.LogisticsObserver.ClearProtectedReturnFuelReserve(parameter);
     }
 
     private static bool? ShouldSuppressPreviewTrajectory(PMTabSchedule schedule, PMMissionParameter parameter, MissionPlanContext context)
