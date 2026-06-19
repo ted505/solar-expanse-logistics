@@ -817,7 +817,7 @@ public static partial class LogisticsObserver
         {
             req.status = Data.LogisticsRequestStatus.InProgress;
             req.statusNote = $"Planning mission for {realProvider.ObjectName} -> {requesterOI.ObjectName}";
-            return true;
+            return false;
         }
 
         var endsMaxA = SolarSdk.CyclicalMissions.CreateResourceCountFromCargo(
@@ -978,7 +978,7 @@ public static partial class LogisticsObserver
         {
             req.status = Data.LogisticsRequestStatus.InProgress;
             req.statusNote = $"Planning mission for {realProvider.ObjectName} -> {requesterOI.ObjectName}";
-            return true;
+            return false;
         }
 
         var endsMaxA = SolarSdk.CyclicalMissions.CreateResourceCountFromCargo(

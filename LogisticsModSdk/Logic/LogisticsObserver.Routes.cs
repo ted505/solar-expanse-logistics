@@ -116,7 +116,9 @@ public static partial class LogisticsObserver
         }
         if (IsMinimumShipmentStatus(req?.statusNote))
             return req.statusNote;
-        var executeReason = bestBlocker.Reason ?? "all candidates failed during execution";
+        var executeReason = !string.IsNullOrWhiteSpace(req?.statusNote)
+            ? req.statusNote
+            : bestBlocker.Reason ?? "all candidates failed during execution";
         if (VerboseLoggingEnabled)
             LogBepInEx($"ROUTE no-execute: target={requester?.ObjectName} rd={rd.ID} reason={executeReason}");
         MarkBlockedPlanningRetryCooldown(requester, rd, executeReason);
