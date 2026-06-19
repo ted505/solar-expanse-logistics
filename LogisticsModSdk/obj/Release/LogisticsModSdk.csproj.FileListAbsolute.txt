@@ -1,0 +1,9 @@
+C:\Program Files (x86)\Steam\steamapps\common\Solar Expanse\BepInEx\plugins\logisticsmodsdk\LogisticsModSdk.dll
+C:\Program Files (x86)\Steam\steamapps\common\Solar Expanse\BepInEx\plugins\logisticsmodsdk\LogisticsModSdk.pdb
+C:\Users\parft\Documents\SolarExpanseMods\LogisticsModSdk\obj\Release\LogisticsModSdk.csproj.AssemblyReference.cache
+C:\Users\parft\Documents\SolarExpanseMods\LogisticsModSdk\obj\Release\LogisticsModSdk.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\parft\Documents\SolarExpanseMods\LogisticsModSdk\obj\Release\LogisticsModSdk.AssemblyInfoInputs.cache
+C:\Users\parft\Documents\SolarExpanseMods\LogisticsModSdk\obj\Release\LogisticsModSdk.AssemblyInfo.cs
+C:\Users\parft\Documents\SolarExpanseMods\LogisticsModSdk\obj\Release\LogisticsModSdk.csproj.CoreCompileInputs.cache
+C:\Users\parft\Documents\SolarExpanseMods\LogisticsModSdk\obj\Release\LogisticsModSdk.dll
+C:\Users\parft\Documents\SolarExpanseMods\LogisticsModSdk\obj\Release\LogisticsModSdk.pdb
