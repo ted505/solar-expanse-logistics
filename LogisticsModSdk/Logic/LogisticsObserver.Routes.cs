@@ -161,20 +161,30 @@ public static partial class LogisticsObserver
         var result = new List<RouteCandidate>();
         // Provider set is already resource-indexed in the snapshot. Each provider may yield
         // zero, one, or multiple route shapes depending on vehicle/LV/staging feasibility.
-        var providerObjects = GetProviderObjectsForResource(rd, snapshot);
+        List<ObjectInfo> providerObjects;
+        using (TimeScope($"RouteCandidates.providers {requester?.ObjectName ?? "null"} {rd?.ID ?? "null"}", 0))
+            providerObjects = GetProviderObjectsForResource(rd, snapshot).ToList();
             foreach (var providerOI in providerObjects)
             {
                 if (providerOI == requester) continue;
 
-                var provData = Data.LogisticsNetwork.Get(providerOI);
-                if (provData == null && TryGetExportedOrbitProviderParent(providerOI, rd, out var exportedParent))
-                    provData = Data.LogisticsNetwork.Get(exportedParent);
+                Data.LogisticsObjectData provData;
+                using (TimeScope($"RouteCandidates.provider-data {providerOI?.ObjectName ?? "null"} {rd?.ID ?? "null"}", 0))
+                {
+                    provData = Data.LogisticsNetwork.Get(providerOI);
+                    if (provData == null && TryGetExportedOrbitProviderParent(providerOI, rd, out var exportedParent))
+                        provData = Data.LogisticsNetwork.Get(exportedParent);
+                }
                 if (provData == null) continue;
-                var matchingProviders = GetMatchingProviderRules(provData, rd, req.networkId, requester, providerOI).ToList();
+                List<Data.LogisticsProvider> matchingProviders;
+                using (TimeScope($"RouteCandidates.matching-rules {providerOI?.ObjectName ?? "null"} {rd?.ID ?? "null"}", 0))
+                    matchingProviders = GetMatchingProviderRules(provData, rd, req.networkId, requester, providerOI).ToList();
                 if (matchingProviders.Count == 0)
                     continue;
 
-            var available = GetProviderAvailableAfterMinimum(providerOI, rd, player);
+            double available;
+            using (TimeScope($"RouteCandidates.provider-surplus {providerOI?.ObjectName ?? "null"} {rd?.ID ?? "null"}", 0))
+                available = GetProviderAvailableAfterMinimum(providerOI, rd, player);
             LogVerbose($"DISPATCH provider: provider={providerOI?.ObjectName} rd={rd.ID} net={req.networkId} availableAfterMin={available:0.#}");
             if (available <= 0)
             {
@@ -195,8 +205,10 @@ public static partial class LogisticsObserver
 
             foreach (var providerRule in matchingProviders)
             {
-                AddDirectRouteCandidates(result, req, providerRule, providerOI, requester, rd, remaining, available, player, scActive, lvActive, bestBlocker, snapshot);
-                AddStagedRouteCandidate(result, req, providerRule, providerOI, requester, rd, remaining, available, player, scActive, lvActive, bestBlocker, snapshot);
+                using (TimeScope($"RouteCandidates.direct {providerOI?.ObjectName ?? "null"}->{requester?.ObjectName ?? "null"} {rd?.ID ?? "null"}", 0))
+                    AddDirectRouteCandidates(result, req, providerRule, providerOI, requester, rd, remaining, available, player, scActive, lvActive, bestBlocker, snapshot);
+                using (TimeScope($"RouteCandidates.staged {providerOI?.ObjectName ?? "null"}->{requester?.ObjectName ?? "null"} {rd?.ID ?? "null"}", 0))
+                    AddStagedRouteCandidate(result, req, providerRule, providerOI, requester, rd, remaining, available, player, scActive, lvActive, bestBlocker, snapshot);
             }
         }
         return result;
@@ -474,17 +486,27 @@ public static partial class LogisticsObserver
             return;
         }
 
-        var amount = GetCandidateAmount(req, providerOI, rd, remaining, available,
-            Math.Min(stageCapacity, finalCapacity), finalCarrier, sourceOrbit, providerRule);
+        double amount;
+        using (TimeScope($"RouteCandidates.staged-amount {providerOI?.ObjectName ?? "null"}->{requester?.ObjectName ?? "null"} {rd?.ID ?? "null"}", 0))
+            amount = GetCandidateAmount(req, providerOI, rd, remaining, available,
+                Math.Min(stageCapacity, finalCapacity), finalCarrier, sourceOrbit, providerRule);
         if (amount <= 0) return;
-        if (!MeetsProviderMinimumShipment(providerOI, rd, amount, out var providerMinimumReason))
+        bool meetsProviderMinimum;
+        string providerMinimumReason;
+        using (TimeScope($"RouteCandidates.staged-provider-min {providerOI?.ObjectName ?? "null"} {rd?.ID ?? "null"}", 0))
+            meetsProviderMinimum = MeetsProviderMinimumShipment(providerOI, rd, amount, out providerMinimumReason);
+        if (!meetsProviderMinimum)
         {
             if (VerboseLoggingEnabled)
                 LogBepInEx($"ROUTE candidate-blocked: rd={rd.ID} kind={RouteKind.StageSourceSurfaceToOrbit} label={providerOI.ObjectName} -> {sourceOrbit.ObjectName} -> {requester.ObjectName} score={routeTier} detail={routeDetail} reason={providerMinimumReason}");
             TrackPlannerBlocker(bestBlocker, routeTier, 7, providerMinimumReason);
             return;
         }
-        if (!MeetsMinimumShipment(sourceOrbit, finalCarrier, amount, out var minimumReason, providerRule))
+        bool meetsMinimum;
+        string minimumReason;
+        using (TimeScope($"RouteCandidates.staged-ship-min {sourceOrbit?.ObjectName ?? "null"} {rd?.ID ?? "null"}", 0))
+            meetsMinimum = MeetsMinimumShipment(sourceOrbit, finalCarrier, amount, out minimumReason, providerRule);
+        if (!meetsMinimum)
         {
             if (VerboseLoggingEnabled)
                 LogBepInEx($"ROUTE candidate-blocked: rd={rd.ID} kind={RouteKind.StageSourceSurfaceToOrbit} label={providerOI.ObjectName} -> {sourceOrbit.ObjectName} -> {requester.ObjectName} score={routeTier} detail={routeDetail} reason={minimumReason}");

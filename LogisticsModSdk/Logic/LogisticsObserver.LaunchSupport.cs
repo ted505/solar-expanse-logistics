@@ -39,6 +39,8 @@ public static partial class LogisticsObserver
         Dictionary<string, int> scActive, bool requireNonContainer, out string reason, PlannerSnapshot snapshot = null,
         ObjectInfo routeTarget = null, Data.LogisticsProvider providerRule = null)
     {
+        using (TimeScope($"FindAllIdleSpacecraft {location?.ObjectName ?? "null"}->{routeTarget?.ObjectName ?? "null"} nonContainer={requireNonContainer}", 0))
+        {
         reason = null;
         var result = new List<Spacecraft>();
         if (location == null || player == null) return result;
@@ -155,6 +157,7 @@ public static partial class LogisticsObserver
                 reason = LogisticsStrings.NoSpacecraftAvailableAt(location);
         }
         return result;
+        }
     }
 
     private static bool IsSpacecraftInRangeForRoute(Spacecraft sc, ObjectInfo routeTarget, Company player)
@@ -195,6 +198,8 @@ public static partial class LogisticsObserver
         out LaunchVehicleType lvType, out Spacecraft carrier, out string reason, out string supportDetail,
         out int supportTierAdjustment, PlannerSnapshot snapshot = null, Data.LogisticsProvider providerRule = null)
     {
+        using (TimeScope($"TryFindSurfaceLaunch {providerOI?.ObjectName ?? "null"}->{targetOI?.ObjectName ?? "null"} containerOnly={requireContainerOnly} regularSC={requireRegularSC}", 0))
+        {
         lvType = null;
         carrier = null;
         reason = null;
@@ -290,12 +295,15 @@ public static partial class LogisticsObserver
         if (carrier == null)
             reason = carrierReason ?? LogisticsStrings.NoIdleSpacecraftAt(providerOI);
         return carrier != null;
+        }
     }
 
     private static bool TryGetStagedRouteSupport(ObjectInfo providerOI, ObjectInfo sourceOrbit, ObjectInfo requester,
         Company player, Dictionary<string, int> scActive, Dictionary<string, int> lvActive,
         Data.LogisticsProvider providerRule, PlannerSnapshot snapshot, out StagedRouteSupport support)
     {
+        using (TimeScope($"LV-STAGE support {providerOI?.ObjectName ?? "null"}->{sourceOrbit?.ObjectName ?? "null"}->{requester?.ObjectName ?? "null"}", 0))
+        {
         support = null;
         if (providerOI == null || sourceOrbit == null || requester == null || player == null)
             return false;
@@ -372,6 +380,7 @@ public static partial class LogisticsObserver
             support.SupportTierAdjustment = stageSupportAdjustment;
             StoreStagedRouteSupport(snapshot, key, support);
             return true;
+        }
         }
     }
 
