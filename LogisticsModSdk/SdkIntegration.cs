@@ -396,7 +396,10 @@ internal static class SdkIntegration
 
             var note = translated ?? tooltip;
             if (!string.IsNullOrEmpty(note) && cmd.B != null)
+            {
                 Logic.LogisticsObserver.SetCyclePlanFailureNote(cmd.B, cmd.cargoAllStart, note);
+                Logic.LogisticsObserver.SetRelayCyclePlanFailureNote(cmd, note);
+            }
 
             if (!string.IsNullOrEmpty(note) && cmd.ListSC != null)
                 Logic.LogisticsObserver.SetShipBlockedReason(cmd.ListSC, note);

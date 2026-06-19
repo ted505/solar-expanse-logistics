@@ -672,7 +672,18 @@ public sealed class SdkCyclicalMissions
 
         _log?.Verbose("sdk.cycles", $"phase requestId={dispatchId} phase={phase} context={context ?? "none"} reason={reason ?? "none"}");
         if (phase != null && phase.IndexOf("failed", System.StringComparison.OrdinalIgnoreCase) >= 0)
-            Core.SolarSdk.Diagnostics.WriteSnapshotOnce($"cycle-{phase}", dispatchId);
+            Core.SolarSdk.Diagnostics.WriteSnapshotOnce($"cycle-{phase}", FailureSnapshotKey(dispatchId, phase, reason));
+    }
+
+    private string FailureSnapshotKey(string dispatchId, string phase, string reason)
+    {
+        if (!_trackersByDispatchId.TryGetValue(dispatchId, out var tracker) || tracker == null)
+            return dispatchId;
+
+        var route = $"{tracker.SourceId}->{tracker.TargetId}";
+        var cycle = string.IsNullOrWhiteSpace(tracker.CycleName) ? "unnamed" : tracker.CycleName;
+        var failure = string.IsNullOrWhiteSpace(reason) ? "unknown" : reason;
+        return $"{phase}:{tracker.OwnerTag ?? "none"}:{route}:{cycle}:{failure}";
     }
 }
 

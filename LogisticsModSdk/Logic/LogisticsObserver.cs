@@ -1112,6 +1112,45 @@ public static class LogisticsObserver
         }
     }
 
+    public static int SetRelayCyclePlanFailureNote(CycleMissionsData cmd, string tooltip)
+    {
+        if (cmd?.A == null || cmd.B == null || string.IsNullOrEmpty(tooltip))
+            return 0;
+
+        var resources = cmd.cargoAllStart?.Tab;
+        var updated = 0;
+        foreach (var requester in Data.LogisticsNetwork.GetAllObjects())
+        {
+            var data = Data.LogisticsNetwork.Get(requester);
+            if (data?.requests == null)
+                continue;
+
+            foreach (var req in data.requests)
+            {
+                if (req == null
+                    || req.relayStage != Data.RelayStage.WaitingForSourceOrbitStock
+                    || req.relaySourceObjectId != cmd.A.id
+                    || req.relayOrbitObjectId != cmd.B.id)
+                {
+                    continue;
+                }
+
+                if (resources != null && resources.Length > 0)
+                {
+                    var rd = req.ResourceDefinition;
+                    if (rd == null || !resources.Any(r => r == rd))
+                        continue;
+                }
+
+                req.statusNote = tooltip;
+                updated++;
+                LogVerbose($"CYCLE relay-plan-failure-note: target={requester.ObjectName} staging={cmd.A.ObjectName}->{cmd.B.ObjectName} rd={req.ResourceDefinition?.ID} note={tooltip}");
+            }
+        }
+
+        return updated;
+    }
+
     public static void SetShipBlockedReason(IEnumerable<ISpacecraftInfo> ships, string reason)
     {
         if (ships == null || string.IsNullOrEmpty(reason)) return;
@@ -3498,6 +3537,7 @@ public static class LogisticsObserver
                     MarkBlockedPlanningRetryCooldown(cmd.B, tabRes, reason);
 
                 SetCyclePlanFailureNote(cmd.B, cmd.cargoAllStart, reason);
+                SetRelayCyclePlanFailureNote(cmd, reason);
             }
             LogWarning($"ABORT LOGI cycle: {cmd.A?.ObjectName}->{cmd.B?.ObjectName} name={cmd.customNameFromPlanMission} reason={reason}");
             RemoveLogisticsCycle(cm, cmd);
