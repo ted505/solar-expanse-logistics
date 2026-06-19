@@ -47,7 +47,14 @@ public static partial class LogisticsObserver
         if (!IsLogisticsMissionInfo(mi)) return;
 
         var trajectory = mi.trajectoryObject;
-        if (trajectory == null) return;
+        var wasKnown = _knownLogisticsMissionInfos.ContainsKey(mi.id);
+        if (wasKnown)
+            RemoveMissionCargoFromInFlightLedger(mi);
+        if (trajectory == null)
+        {
+            _knownLogisticsMissionInfos.Remove(mi.id);
+            return;
+        }
 
         LogVerbose($"CLEANUP completed LOGI trajectory: mission={mi.id} name=\"{mi.missionName}\" reason={reason} arrive={mi.DateArrive:yyyy-MM-dd}");
         var dispatchId = SolarSdk.CyclicalMissions.FindDispatchId(mi);

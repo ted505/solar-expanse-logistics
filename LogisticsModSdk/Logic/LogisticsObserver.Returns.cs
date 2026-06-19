@@ -550,6 +550,8 @@ public static partial class LogisticsObserver
         var key = TargetResourceKey(home, rd);
         if (key == null)
             return;
+        _inFlightCargoLedger.TryGetValue(key, out var ledgerExisting);
+        _inFlightCargoLedger[key] = ledgerExisting + amount;
         if (snapshot?.InFlightCargoByTargetAndResource != null)
         {
             snapshot.InFlightCargoByTargetAndResource.TryGetValue(key, out var existing);

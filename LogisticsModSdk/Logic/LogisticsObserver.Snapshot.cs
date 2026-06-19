@@ -124,22 +124,11 @@ public static partial class LogisticsObserver
             }
         }
 
-        // In-flight cargo counts are part of request accounting. They keep min/target and
-        // one-shot requests from ordering duplicate shipments while stock missions exist.
+        // In-flight cargo is logistics-owned after mission creation. Rebuild once after
+        // load/runtime reset, then copy the ledger each daily tick instead of rescanning
+        // every stock MissionInfo.
         using (TimeScope("SnapshotIndex.inFlightCargo"))
-        {
-            foreach (var mi in snapshot.Missions)
-            {
-                if (IsLogisticsMissionInfo(mi))
-                    RegisterLogisticsMissionInfo(mi);
-                if (mi == null || mi.complete || mi.cancel) continue;
-                if (mi.company != player) continue;
-                if (mi.target == null || mi.cargoAll == null) continue;
-
-                AddInFlightCargo(snapshot, mi.target, mi.cargoAll.listCargo);
-                AddInFlightCargo(snapshot, mi.target, mi.cargoAll.listCargoToOrbit);
-            }
-        }
+            CopyInFlightCargoLedgerToSnapshot(player, snapshot);
 
         // Market offers are indexed by body/resource/side so Auto-Buy/Auto-Sell can avoid
         // walking the entire economy for each individual logistics rule. If no automation
@@ -173,26 +162,48 @@ public static partial class LogisticsObserver
         }
     }
 
-    private static void AddInFlightCargo(PlannerSnapshot snapshot, ObjectInfo target, IEnumerable<Cargo> cargoList)
+    private static void CopyInFlightCargoLedgerToSnapshot(Company player, PlannerSnapshot snapshot)
     {
-        if (snapshot == null || target == null || cargoList == null)
+        if (snapshot == null)
             return;
 
-        foreach (var cargo in cargoList)
-        {
-            if (cargo == null
-                || cargo.resourceTypeType != EResourceTypeType.resorces
-                || cargo.resourceType == null
-                || cargo.cargoMass <= 0)
-            {
-                continue;
-            }
+        if (_inFlightCargoLedgerNeedsRebuild)
+            RebuildInFlightCargoLedger(player, snapshot.Missions);
 
-            var key = TargetResourceKey(target, cargo.resourceType);
-            if (key == null)
+        snapshot.InFlightCargoByTargetAndResource.Clear();
+        foreach (var pair in _inFlightCargoLedger)
+            snapshot.InFlightCargoByTargetAndResource[pair.Key] = pair.Value;
+    }
+
+    public static void RebuildInFlightCargoLedger(Company player = null, IEnumerable<MissionInfo> missions = null)
+    {
+        using (TimeScope("InFlightLedger.rebuild"))
+        {
+        _inFlightCargoLedger.Clear();
+        _knownLogisticsMissionInfos.Clear();
+
+        player ??= MonoBehaviourSingleton<GameManager>.Instance?.Player;
+        missions ??= MonoBehaviourSingleton<MissionInfoManager>.Instance?.ListMissionInfo;
+        if (player == null || missions == null)
+        {
+            _inFlightCargoLedgerNeedsRebuild = true;
+            return;
+        }
+
+        foreach (var mi in missions)
+        {
+            if (!IsLogisticsMissionInfo(mi))
                 continue;
-            snapshot.InFlightCargoByTargetAndResource.TryGetValue(key, out var existing);
-            snapshot.InFlightCargoByTargetAndResource[key] = existing + cargo.cargoMass;
+
+            RegisterLogisticsMissionInfo(mi, updateLedger: false);
+            if (mi == null || mi.complete || mi.cancel) continue;
+            if (mi.company != player || mi.target == null || mi.cargoAll == null) continue;
+
+            AddMissionCargoToInFlightLedger(mi);
+        }
+
+        _inFlightCargoLedgerNeedsRebuild = false;
+        LogVerbose($"INFLIGHT ledger-rebuild: entries={_inFlightCargoLedger.Count} missions={_knownLogisticsMissionInfos.Count}");
         }
     }
 }

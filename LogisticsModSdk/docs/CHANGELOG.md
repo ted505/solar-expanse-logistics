@@ -8,6 +8,7 @@
 - Added targeted `LV-STAGE` timing diagnostics around staged support resolution and final-carrier lookup.
 - SDK cycle handoff now treats stock LOC "waiting for existing container mission" returns as deferred rather than failed, preventing duplicate surface-to-orbit staging retries.
 - Stock spacecraft row markers now distinguish shared logistics pool ships from provider-assigned ships instead of labeling both as reserved.
+- In-flight cargo accounting now uses a logistics-owned runtime ledger that rebuilds once after load and then updates from mission registration/completion, avoiding a daily scan of every stock mission.
 
 ---
 

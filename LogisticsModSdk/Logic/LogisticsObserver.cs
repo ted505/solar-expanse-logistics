@@ -97,6 +97,10 @@ public static partial class LogisticsObserver
 
     private static readonly Dictionary<string, double> _committedStock = new Dictionary<string, double>();
 
+    private static readonly Dictionary<string, double> _inFlightCargoLedger = new Dictionary<string, double>();
+
+    private static bool _inFlightCargoLedgerNeedsRebuild = true;
+
     private static readonly Dictionary<string, CoalescedLogState> _coalescedLogState = new Dictionary<string, CoalescedLogState>();
 
     private static readonly Dictionary<int, string> _cycleNameByShipId = new Dictionary<int, string>();
@@ -456,6 +460,7 @@ public static partial class LogisticsObserver
         var protectedReserveCount = _protectedReturnReserveByParameter.Count;
         var routeLockCount = _routePlanningLocks.Count;
         var committedCount = _committedStock.Count;
+        var inFlightCount = _inFlightCargoLedger.Count;
         var throttleCount = _requestPlanThrottle.Count;
         var precalcCount = _precalculateRouteCache.Count;
         var routeTierCount = _routeTierCache.Count;
@@ -472,6 +477,8 @@ public static partial class LogisticsObserver
         _protectedReturnReserveByParameter.Clear();
         _routePlanningLocks.Clear();
         _committedStock.Clear();
+        _inFlightCargoLedger.Clear();
+        _inFlightCargoLedgerNeedsRebuild = true;
         _requestPlanThrottle.Clear();
         _precalculateRouteCache.Clear();
         _precalculateRouteCacheOrder.Clear();
@@ -487,7 +494,7 @@ public static partial class LogisticsObserver
         _nextOrphanTrajectoryScan = default;
         _nextNewDispatchWallClockUtc = default;
         if (VerboseLoggingEnabled)
-        LogVerbose($"RESET runtime-state: cycles={cycleCount} pending={pendingCount} returns={returnCount} failures={failCount} fuelProbes={fuelProbeCount} protectedReserveCargo={protectedReserveCargoCount} protectedReserveCycles={protectedReserveCycleCount} protectedReserves={protectedReserveCount} routeLocks={routeLockCount} committed={committedCount} throttles={throttleCount} precalc={precalcCount} routeTiers={routeTierCount} knownMissions={knownMissionCount} coalescedLogs={coalescedLogCount}");
+        LogVerbose($"RESET runtime-state: cycles={cycleCount} pending={pendingCount} returns={returnCount} failures={failCount} fuelProbes={fuelProbeCount} protectedReserveCargo={protectedReserveCargoCount} protectedReserveCycles={protectedReserveCycleCount} protectedReserves={protectedReserveCount} routeLocks={routeLockCount} committed={committedCount} inFlightLedger={inFlightCount} throttles={throttleCount} precalc={precalcCount} routeTiers={routeTierCount} knownMissions={knownMissionCount} coalescedLogs={coalescedLogCount}");
     }
 
     public static object BuildSdkDebugSnapshot()
@@ -533,6 +540,7 @@ public static partial class LogisticsObserver
                 returnFuelProbes = _returnFuelProbeCache.Count,
                 routeLocks = _routePlanningLocks.Count,
                 committedStock = _committedStock.Count,
+                inFlightCargoLedger = _inFlightCargoLedger.Count,
                 knownMissions = _knownLogisticsMissionInfos.Count
             },
             sdk = new

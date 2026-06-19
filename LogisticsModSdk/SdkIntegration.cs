@@ -588,6 +588,7 @@ internal static class SdkIntegration
 
         MatchCyclesToRequests(player, cm);
         Logic.LogisticsObserver.CleanupCompletedLogisticsMissionTrajectories(player);
+        Logic.LogisticsObserver.RebuildInFlightCargoLedger(player);
     }
 
     private static void MatchCyclesToRequests(Company player, CycleMissionManager cm)

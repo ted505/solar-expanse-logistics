@@ -387,15 +387,64 @@ public static partial class LogisticsObserver
             && mi.missionName.StartsWith("[LOGI", StringComparison.Ordinal);
     }
 
-    public static void RegisterLogisticsMissionInfo(MissionInfo mi)
+    public static void RegisterLogisticsMissionInfo(MissionInfo mi, bool updateLedger = true)
     {
         if (!IsLogisticsMissionInfo(mi))
             return;
 
+        var alreadyKnown = _knownLogisticsMissionInfos.ContainsKey(mi.id);
         _knownLogisticsMissionInfos[mi.id] = mi;
         var dispatchId = SolarSdk.CyclicalMissions.FindDispatchId(mi);
         if (!string.IsNullOrEmpty(dispatchId))
             SolarSdk.CyclicalMissions.RegisterMissionInfo(dispatchId, mi);
+        if (updateLedger && !alreadyKnown && mi != null && !mi.complete && !mi.cancel)
+            AddMissionCargoToInFlightLedger(mi);
+    }
+
+    private static void AddMissionCargoToInFlightLedger(MissionInfo mi)
+    {
+        if (mi?.target == null || mi.cargoAll == null)
+            return;
+
+        AddCargoToInFlightLedger(mi.target, mi.cargoAll.listCargo, 1.0);
+        AddCargoToInFlightLedger(mi.target, mi.cargoAll.listCargoToOrbit, 1.0);
+    }
+
+    private static void RemoveMissionCargoFromInFlightLedger(MissionInfo mi)
+    {
+        if (mi?.target == null || mi.cargoAll == null)
+            return;
+
+        AddCargoToInFlightLedger(mi.target, mi.cargoAll.listCargo, -1.0);
+        AddCargoToInFlightLedger(mi.target, mi.cargoAll.listCargoToOrbit, -1.0);
+    }
+
+    private static void AddCargoToInFlightLedger(ObjectInfo target, IEnumerable<Cargo> cargoList, double sign)
+    {
+        if (target == null || cargoList == null)
+            return;
+
+        foreach (var cargo in cargoList)
+        {
+            if (cargo == null
+                || cargo.resourceTypeType != EResourceTypeType.resorces
+                || cargo.resourceType == null
+                || cargo.cargoMass <= 0)
+            {
+                continue;
+            }
+
+            var key = TargetResourceKey(target, cargo.resourceType);
+            if (key == null)
+                continue;
+
+            _inFlightCargoLedger.TryGetValue(key, out var existing);
+            var next = existing + cargo.cargoMass * sign;
+            if (next > 0.001)
+                _inFlightCargoLedger[key] = next;
+            else
+                _inFlightCargoLedger.Remove(key);
+        }
     }
 
     public static void SetCyclePlanFailureNote(ObjectInfo target, InfoCargoCyclicalMission cargoInfo, string tooltip)
