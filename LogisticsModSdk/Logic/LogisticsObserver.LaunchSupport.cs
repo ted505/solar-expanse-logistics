@@ -292,6 +292,111 @@ public static partial class LogisticsObserver
         return carrier != null;
     }
 
+    private static bool TryGetStagedRouteSupport(ObjectInfo providerOI, ObjectInfo sourceOrbit, ObjectInfo requester,
+        Company player, Dictionary<string, int> scActive, Dictionary<string, int> lvActive,
+        Data.LogisticsProvider providerRule, PlannerSnapshot snapshot, out StagedRouteSupport support)
+    {
+        support = null;
+        if (providerOI == null || sourceOrbit == null || requester == null || player == null)
+            return false;
+
+        var key = BuildStagedRouteSupportKey(providerOI, sourceOrbit, requester, providerRule);
+        if (snapshot?.StagedRouteSupportByKey != null
+            && key != null
+            && snapshot.StagedRouteSupportByKey.TryGetValue(key, out var cached))
+        {
+            support = cached;
+            LogVerboseCoalesced($"lv-stage-cache|{key}", $"LV-STAGE support-cache-hit: provider={providerOI.ObjectName} orbit={sourceOrbit.ObjectName} target={requester.ObjectName} success={cached.Success} reason={cached.Reason ?? "none"}");
+            return cached.Success;
+        }
+
+        support = new StagedRouteSupport();
+        using (TimeScope($"LV-STAGE resolve {providerOI.ObjectName}->{sourceOrbit.ObjectName}->{requester.ObjectName}"))
+        {
+            if (!TryFindSurfaceLaunch(providerOI, sourceOrbit, player, scActive, lvActive,
+                    requireContainerOnly: true, requireRegularSC: false,
+                    out var stageLvType, out var stageCarrier, out var stageReason,
+                    out var stageSupportDetail, out var stageSupportAdjustment, snapshot, providerRule))
+            {
+                support.Success = false;
+                support.Reason = stageReason;
+                StoreStagedRouteSupport(snapshot, key, support);
+                return false;
+            }
+
+            var launchSupport = GetAvailableLaunchSupport(providerOI, player, snapshot);
+            var matchingOption = launchSupport.FirstOrDefault(opt =>
+                opt?.Type != null && SameLaunchVehicleType(opt.Type, stageLvType));
+            var stageCapacity = GetSurfaceToOrbitPayloadCapacity(providerOI, player, stageCarrier, matchingOption, stageLvType);
+            if (stageCapacity <= 0)
+            {
+                support.Success = false;
+                support.Reason = LogisticsStrings.NoOrbitalPayloadCapacityFrom(providerOI);
+                support.LaunchVehicleType = stageLvType;
+                support.StageCarrier = stageCarrier;
+                support.SupportDetail = stageSupportDetail;
+                support.SupportTierAdjustment = stageSupportAdjustment;
+                StoreStagedRouteSupport(snapshot, key, support);
+                return false;
+            }
+
+            Spacecraft finalCarrier;
+            string finalCarrierReason;
+            using (TimeScope($"LV-STAGE final-carrier {sourceOrbit.ObjectName}->{requester.ObjectName}"))
+            {
+                finalCarrier = FindBestIdleSpacecraft(sourceOrbit, player, scActive, requireNonContainer: true,
+                    out finalCarrierReason, snapshot, requester, providerRule);
+            }
+
+            var finalCapacity = finalCarrier?.spacecraftType?.GetCargoCapacity(player) ?? 0;
+            if (finalCapacity <= 0)
+            {
+                support.Success = false;
+                support.Reason = finalCarrierReason ?? LogisticsStrings.NoSpacecraftAvailableAt(sourceOrbit);
+                support.LaunchVehicleType = stageLvType;
+                support.StageCarrier = stageCarrier;
+                support.StageCapacity = stageCapacity;
+                support.SupportDetail = stageSupportDetail;
+                support.SupportTierAdjustment = stageSupportAdjustment;
+                StoreStagedRouteSupport(snapshot, key, support);
+                return false;
+            }
+
+            support.Success = true;
+            support.LaunchVehicleType = stageLvType;
+            support.StageCarrier = stageCarrier;
+            support.FinalCarrier = finalCarrier;
+            support.StageCapacity = stageCapacity;
+            support.FinalCapacity = finalCapacity;
+            support.SupportDetail = stageSupportDetail;
+            support.SupportTierAdjustment = stageSupportAdjustment;
+            StoreStagedRouteSupport(snapshot, key, support);
+            return true;
+        }
+    }
+
+    private static void StoreStagedRouteSupport(PlannerSnapshot snapshot, string key, StagedRouteSupport support)
+    {
+        if (snapshot?.StagedRouteSupportByKey == null || string.IsNullOrWhiteSpace(key) || support == null)
+            return;
+        snapshot.StagedRouteSupportByKey[key] = support;
+    }
+
+    private static string BuildStagedRouteSupportKey(ObjectInfo providerOI, ObjectInfo sourceOrbit, ObjectInfo requester,
+        Data.LogisticsProvider providerRule)
+    {
+        if (providerOI == null || sourceOrbit == null || requester == null)
+            return null;
+
+        var assigned = providerRule?.assignedSpacecraftIds == null
+            ? string.Empty
+            : string.Join(",", providerRule.assignedSpacecraftIds.OrderBy(id => id));
+        var providerKey = providerRule == null
+            ? "none"
+            : $"net={providerRule.networkId};shared={providerRule.useSharedSpacecraftPool};assigned={assigned}";
+        return $"{providerOI.id}->{sourceOrbit.id}->{requester.id}|{providerKey}";
+    }
+
     private static int CountActiveLaunchVehicleUsesAt(ObjectInfo origin, LaunchVehicleType lvType, Company player, PlannerSnapshot snapshot = null)
     {
         if (origin == null || lvType == null || player == null)

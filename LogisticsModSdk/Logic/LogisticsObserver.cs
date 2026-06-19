@@ -266,6 +266,7 @@ public static partial class LogisticsObserver
         public Dictionary<string, int> LvActive = new Dictionary<string, int>();
         public HashSet<int> CommittedShipIds = new HashSet<int>();
         public Dictionary<int, List<LaunchSupportOption>> LaunchSupportByObjectId = new Dictionary<int, List<LaunchSupportOption>>();
+        public Dictionary<string, StagedRouteSupport> StagedRouteSupportByKey = new Dictionary<string, StagedRouteSupport>();
         public Dictionary<ResourceDefinition, List<ObjectInfo>> ProvidersByResource = new Dictionary<ResourceDefinition, List<ObjectInfo>>();
         public Dictionary<int, List<Spacecraft>> ShipsByObjectId = new Dictionary<int, List<Spacecraft>>();
         public Dictionary<int, Spacecraft> ShipsById = new Dictionary<int, Spacecraft>();
@@ -324,6 +325,19 @@ public static partial class LogisticsObserver
         public string Label;
         public bool IsFacilityBacked;
         public int TierAdjustment;
+    }
+
+    private sealed class StagedRouteSupport
+    {
+        public bool Success;
+        public LaunchVehicleType LaunchVehicleType;
+        public Spacecraft StageCarrier;
+        public Spacecraft FinalCarrier;
+        public double StageCapacity;
+        public double FinalCapacity;
+        public string Reason;
+        public string SupportDetail;
+        public int SupportTierAdjustment;
     }
 
     public enum ShipState { Idle, InTransit, Pending, Blocked }

@@ -431,24 +431,30 @@ public static partial class LogisticsObserver
         var routeTier = ApplyProviderPriorityToTier(baseRouteTier, providerOI, rd);
         var routeDetail = VerboseLoggingEnabled ? DescribeRouteScore(sourceOrbit, requester, routeTier) + DescribePriorityScore(providerOI, rd) : null;
 
-        if (!TryFindSurfaceLaunch(providerOI, sourceOrbit, player, scActive, lvActive, true,
-                false, out var stageLvType, out var stageCarrier, out var stageReason, out var stageSupportDetail, out var stageSupportAdjustment, snapshot, providerRule))
+        if (!TryGetStagedRouteSupport(providerOI, sourceOrbit, requester, player, scActive, lvActive,
+                providerRule, snapshot, out var stagedSupport))
         {
+            var stageReason = stagedSupport?.Reason ?? LogisticsStrings.NoSurfaceLaunchPathFrom(providerOI);
             if (VerboseLoggingEnabled)
                 LogBepInEx($"ROUTE candidate-blocked: rd={rd.ID} kind={RouteKind.StageSourceSurfaceToOrbit} label={providerOI.ObjectName} -> {sourceOrbit.ObjectName} -> {requester.ObjectName} score={routeTier} detail={routeDetail} reason={stageReason}");
-            TrackPlannerBlocker(bestBlocker, routeTier, 2, stageReason);
+            var missingOptionalStagingSpacecraft = IsMissingOptionalStagingSpacecraftReason(stageReason);
+            TrackPlannerBlocker(bestBlocker,
+                missingOptionalStagingSpacecraft ? routeTier + 100 : routeTier,
+                missingOptionalStagingSpacecraft ? 9 : 2,
+                stageReason);
             return;
         }
 
-        routeTier += stageSupportAdjustment;
-        routeDetail = VerboseLoggingEnabled ? DescribeRouteScore(sourceOrbit, requester, routeTier, stageSupportAdjustment) : null;
+        routeTier += stagedSupport.SupportTierAdjustment;
+        routeDetail = VerboseLoggingEnabled ? DescribeRouteScore(sourceOrbit, requester, routeTier, stagedSupport.SupportTierAdjustment) : null;
         if (VerboseLoggingEnabled)
             routeDetail += DescribePriorityScore(providerOI, rd);
 
-        var finalCarrier = FindBestIdleSpacecraft(sourceOrbit, player, scActive, requireNonContainer: true,
-            out var finalCarrierReason, snapshot, requester, providerRule);
-        var stageCapacity = stageCarrier?.spacecraftType?.GetCargoCapacity(player) ?? 0;
-        var finalCapacity = finalCarrier?.spacecraftType?.GetCargoCapacity(player) ?? 0;
+        var stageCarrier = stagedSupport.StageCarrier;
+        var finalCarrier = stagedSupport.FinalCarrier;
+        var stageLvType = stagedSupport.LaunchVehicleType;
+        var stageCapacity = stagedSupport.StageCapacity;
+        var finalCapacity = stagedSupport.FinalCapacity;
         if (stageCapacity <= 0)
         {
             var stageCapacityReason = LogisticsStrings.NoOrbitalPayloadCapacityFrom(providerOI);
@@ -459,7 +465,7 @@ public static partial class LogisticsObserver
         }
         if (finalCapacity <= 0)
         {
-            var finalReason = finalCarrierReason ?? LogisticsStrings.NoSpacecraftAvailableAt(sourceOrbit);
+            var finalReason = stagedSupport.Reason ?? LogisticsStrings.NoSpacecraftAvailableAt(sourceOrbit);
             if (VerboseLoggingEnabled)
                 LogBepInEx($"ROUTE candidate-blocked: rd={rd.ID} kind={RouteKind.StageSourceSurfaceToOrbit} label={providerOI.ObjectName} -> {sourceOrbit.ObjectName} -> {requester.ObjectName} score={routeTier} detail={routeDetail} reason={finalReason}");
             var missingOptionalStagingSpacecraft = IsMissingOptionalStagingSpacecraftReason(finalReason);
@@ -502,7 +508,7 @@ public static partial class LogisticsObserver
             HopCount = 2,
             UsesLV = true,
             Label = $"{providerOI.ObjectName} -> {sourceOrbit.ObjectName} -> {requester.ObjectName}",
-            ScoreBreakdown = string.IsNullOrWhiteSpace(stageSupportDetail) ? routeDetail : $"{routeDetail};launchSupport={stageSupportDetail}"
+            ScoreBreakdown = string.IsNullOrWhiteSpace(stagedSupport.SupportDetail) ? routeDetail : $"{routeDetail};launchSupport={stagedSupport.SupportDetail};stageCapacity={stageCapacity:0.#};finalCapacity={finalCapacity:0.#}"
         });
     }
 

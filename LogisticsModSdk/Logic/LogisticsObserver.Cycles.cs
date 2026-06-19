@@ -316,6 +316,7 @@ public static partial class LogisticsObserver
     private static void RecordDispatchInSnapshot(PlannerSnapshot snapshot, Spacecraft sc, LaunchVehicleType lvType)
     {
         if (snapshot == null) return;
+        snapshot.StagedRouteSupportByKey.Clear();
         if (sc?.spacecraftType != null)
         {
             var tn = Data.LogisticsNetwork.TypeKey(sc.spacecraftType.ID, sc.spacecraftType.NameRocketType ?? "SC");

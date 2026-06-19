@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-06-19 -- LV Staging Hot-Path Optimization
+
+- Added a per-planner-snapshot staged-route support cache for surface-to-orbit LV staging.
+- Staged route candidate generation now reuses cached LV/container/final-carrier resolution and invalidates that cache after each recorded dispatch.
+- Staged LV candidates now cap source-surface lift by actual launch-support payload capacity, matching export-to-orbit behavior.
+- Added targeted `LV-STAGE` timing diagnostics around staged support resolution and final-carrier lookup.
+
+---
+
 ## 2026-06-09 -- Moon-Case FAST Transfer Fix
 
 - Fixed `IsMoonCaseRoute` sibling check matching interplanetary routes (Earth → Mars) as moon-case. The shared-parent check now requires the parent to be a `Planet` or `DwarfPlanet`, not a star. This was forcing all interplanetary FAST transfers to Optimal.
