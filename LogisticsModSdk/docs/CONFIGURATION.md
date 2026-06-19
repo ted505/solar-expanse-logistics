@@ -6,7 +6,7 @@ All settings are in `BepInEx/plugins/logisticsmodsdk/LogisticsModSdk.cfg`. The f
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `Enabled` | `true` | When enabled, outbound logistics missions stage return fuel at the destination as cargo. |
+| `Enabled` | `true` | When enabled, outbound logistics missions stage return fuel at the destination as cargo. Return-fuel cargo may use fuel physically present at the outbound loading point even without a SEND rule. |
 | `SafetyMultiplier` | `1.1` | Multiplier on estimated return fuel. Higher values waste more cargo space but reduce the chance of stranding a ship. |
 | `ReserveCargoFirst` | `true` | When enabled, return fuel cargo is allocated before requested logistics cargo, guaranteeing the ship can come home even if it means delivering less. |
 | `TrustDomesticOnlyAfterStockpile` | `true` | Local fuel production at the destination is only trusted after the estimated reserve stockpile already exists there. Prevents relying on production that hasn't built up yet. |

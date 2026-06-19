@@ -851,6 +851,8 @@ public static partial class LogisticsObserver
         RegisterLogisticsCycleName(cmd);
 
         CommitStock(realProvider, rd, amount);
+        if (reserveFuelCargo > 0 && cargoToB?.cargoFuel?.resourceType != null)
+            CommitStock(realProvider, cargoToB.cargoFuel.resourceType, reserveFuelCargo);
         var isDirectToFinal = accountingTargetOI == null || accountingTargetOI == requesterOI;
         if (req.oneShot && amount > 0 && isDirectToFinal)
             req.dispatchedAmount += amount;
@@ -1009,6 +1011,8 @@ public static partial class LogisticsObserver
         MarkShipForReturn(container, realProvider, requesterOI, rd);
         RegisterLogisticsCycleName(cmd);
         CommitStock(realProvider, rd, amount);
+        if (reserveFuelCargo > 0 && cargoToB?.cargoFuel?.resourceType != null)
+            CommitStock(realProvider, cargoToB.cargoFuel.resourceType, reserveFuelCargo);
         var isDirectToFinal = accountingTargetOI == null || accountingTargetOI == requesterOI;
         if (req.oneShot && amount > 0 && isDirectToFinal)
             req.dispatchedAmount += amount;

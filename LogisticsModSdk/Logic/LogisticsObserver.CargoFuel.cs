@@ -393,6 +393,22 @@ public static partial class LogisticsObserver
         return result;
     }
 
+    private static double GetReturnFuelSourceAvailable(ObjectInfo sourceOI, ResourceDefinition fuelType, Company player)
+    {
+        if (sourceOI == null || fuelType == null || player == null)
+            return 0;
+
+        // Return propellant is part of the outbound mission loadout, not a normal
+        // requested export. It may use fuel physically present at the loading point
+        // even when that fuel has no SEND rule, while ordinary cargo routing still
+        // goes through GetProviderAvailableAfterMinimum.
+        var localStock = Math.Max(0, GetFuelStock(sourceOI, player, fuelType) - GetCommittedStock(sourceOI, fuelType));
+        var exportSurplus = GetProviderAvailableAfterMinimum(sourceOI, fuelType, player);
+        var result = Math.Max(localStock, exportSurplus);
+        LogVerbose($"RETURNFUEL source-fuel: source={sourceOI.ObjectName} fuel={fuelType.ID} local={localStock:0.#} exportSurplus={exportSurplus:0.#} available={result:0.#}");
+        return result;
+    }
+
     // DIAGNOSTIC: logs the components of the surplus calculation so we can see which
     // term is wrong when a provider reports low/zero exportable stock despite a large
     // visible stockpile. Throttled per provider+resource to avoid flooding the log.
@@ -612,7 +628,7 @@ public static partial class LogisticsObserver
             return cargoAll.CargoCurrent > 0;
         }
 
-        var providerFuelAvailable = GetProviderAvailableAfterMinimum(providerOI, fuelType, player);
+        var providerFuelAvailable = GetReturnFuelSourceAvailable(providerOI, fuelType, player);
         var reserveScType = sc?.GetTypeSpaceCraft();
         var tankCapacity = reserveScType == null ? 0.0 : reserveScType.GetFuelCapacity(player);
         var fuelToProtect = Math.Min(shortfall, Math.Min(providerFuelAvailable, tankCapacity));
@@ -943,7 +959,7 @@ public static partial class LogisticsObserver
         }
 
         var capacity = scType.GetCargoCapacity(pmp.FlyCompany) * Math.Max(1, pmp.SCCount);
-        var providerFuelAvailable = GetProviderAvailableAfterMinimum(pmp.Start, fuelType, pmp.FlyCompany);
+        var providerFuelAvailable = GetReturnFuelSourceAvailable(pmp.Start, fuelType, pmp.FlyCompany);
         var fuelToAdd = Math.Min(shortfall, providerFuelAvailable);
         if (fuelToAdd <= 0)
         {
