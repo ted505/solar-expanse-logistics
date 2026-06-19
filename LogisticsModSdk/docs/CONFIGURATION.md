@@ -22,7 +22,7 @@ All settings are in `BepInEx/plugins/logisticsmodsdk/LogisticsModSdk.cfg`. The f
 | `DispatchCreationCooldownMs` | `100.0` | Minimum wall-clock milliseconds between new outbound logistics dispatch creations. This smooths stock mission-planner spikes during high time acceleration without blocking later parallel launches. |
 | `VerboseLogging` | `false` | Enables per-request route diagnostics, dispatch traces, naming traces, and stock callback details. Writes to `BepInEx/LogisticsMod_*.log`. |
 | `VerboseLogCoalesceSeconds` | `5.0` | Wall-clock window for coalescing repeated high-volume verbose lines such as cooldowns and return-fuel shortfalls. Suppressed counts are appended to the next emitted line. Set to `0` to write every line. |
-| `LogFlushIntervalSeconds` | `2.0` | Wall-clock interval for flushing buffered verbose logs to disk. Warnings and errors flush immediately. Lower values are safer for crash forensics; higher values reduce disk I/O. |
+| `LogFlushIntervalSeconds` | `2.0` | Wall-clock interval for flushing buffered logs to disk. Warnings flush immediately while verbose logging is enabled; errors only force-flush when verbose logging is enabled. Lower values are safer for crash forensics; higher values reduce disk I/O. |
 | `TimingLogging` | `true` | Enables targeted timing diagnostics for daily planning, snapshot construction, mission setup, and stock callback performance. |
 | `TimingLogThresholdMs` | `5.0` | Only timing spans at or above this wall-clock duration (ms) are logged. Lower to see finer-grained timings; raise to reduce log volume. |
 

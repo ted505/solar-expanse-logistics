@@ -124,7 +124,7 @@ public static partial class LogisticsObserver
         }
         var line = $"[{DateTime.Now:HH:mm:ss}] {level}{msg}";
         _logWriter.WriteLine(line);
-        FlushLogIfNeeded(level == "[WARN] " || level == "[ERROR] ");
+        FlushLogIfNeeded(level == "[WARN] " || (level == "[ERROR] " && VerboseLogging));
     }
 
     private static bool WriteLogCoalesced(string level, string key, string msg, bool forceFlush)
