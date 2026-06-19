@@ -405,6 +405,9 @@ public static partial class LogisticsObserver
 
     // TIMING-PROFILER-REMOVE: remove TimeScope/LogTiming and associated using(...) lines when profiling is no longer needed.
 
+    [ThreadStatic]
+    private static TimingScope _currentTimingScope;
+
     public static IDisposable TimeScope(string name)
     {
         if (!TimingLogging || string.IsNullOrEmpty(name))
@@ -428,7 +431,15 @@ public static partial class LogisticsObserver
     {
         if (!TimingLogging || milliseconds < thresholdMs)
             return;
-        WriteLog("[TIME] ", $"{name} {milliseconds:0.###}ms");
+        LogTimingRaw(name, milliseconds, 0);
+    }
+
+    private static void LogTimingRaw(string name, double milliseconds, int indentDepth)
+    {
+        if (!TimingLogging)
+            return;
+        var indent = indentDepth <= 0 ? string.Empty : new string(' ', indentDepth * 2);
+        WriteLog("[TIME] ", $"{indent}{name} {milliseconds:0.###}ms");
     }
 
     private sealed class TimingScope : IDisposable
@@ -436,18 +447,61 @@ public static partial class LogisticsObserver
         private readonly string _name;
         private readonly double _thresholdMs;
         private readonly Stopwatch _stopwatch;
+        private readonly TimingScope _parent;
+        private readonly List<TimingBreakdownLine> _breakdown = new List<TimingBreakdownLine>();
 
         public TimingScope(string name, double thresholdMs)
         {
             _name = name;
             _thresholdMs = thresholdMs;
+            _parent = _currentTimingScope;
+            _currentTimingScope = this;
             _stopwatch = Stopwatch.StartNew();
         }
 
         public void Dispose()
         {
             _stopwatch.Stop();
-            LogTiming(_name, _stopwatch.Elapsed.TotalMilliseconds, _thresholdMs);
+            if (_currentTimingScope == this)
+                _currentTimingScope = _parent;
+
+            var elapsed = _stopwatch.Elapsed.TotalMilliseconds;
+            if (_thresholdMs <= 0 && _parent != null)
+            {
+                _parent.AddBreakdown(_name, elapsed, _breakdown);
+                return;
+            }
+
+            if (!TimingLogging || elapsed < _thresholdMs)
+                return;
+
+            LogTimingRaw(_name, elapsed, 0);
+            foreach (var line in _breakdown)
+                LogTimingRaw(line.Name, line.Milliseconds, line.IndentDepth);
+        }
+
+        private void AddBreakdown(string name, double milliseconds, List<TimingBreakdownLine> nested)
+        {
+            _breakdown.Add(new TimingBreakdownLine(name, milliseconds, 1));
+            if (nested == null || nested.Count == 0)
+                return;
+
+            foreach (var line in nested)
+                _breakdown.Add(new TimingBreakdownLine(line.Name, line.Milliseconds, line.IndentDepth + 1));
+        }
+    }
+
+    private sealed class TimingBreakdownLine
+    {
+        public readonly string Name;
+        public readonly double Milliseconds;
+        public readonly int IndentDepth;
+
+        public TimingBreakdownLine(string name, double milliseconds, int indentDepth)
+        {
+            Name = name;
+            Milliseconds = milliseconds;
+            IndentDepth = indentDepth;
         }
     }
 
