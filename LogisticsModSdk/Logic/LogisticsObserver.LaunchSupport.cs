@@ -308,7 +308,8 @@ public static partial class LogisticsObserver
         if (providerOI == null || sourceOrbit == null || requester == null || player == null)
             return false;
 
-        var key = BuildStagedRouteSupportKey(providerOI, sourceOrbit, requester, providerRule);
+        var key = BuildStagedRouteSupportCacheKey(providerOI, sourceOrbit, requester, player,
+            scActive, lvActive, providerRule, snapshot);
         if (snapshot?.StagedRouteSupportByKey != null
             && key != null
             && snapshot.StagedRouteSupportByKey.TryGetValue(key, out var cached))
@@ -316,6 +317,14 @@ public static partial class LogisticsObserver
             support = cached;
             LogVerboseCoalesced($"lv-stage-cache|{key}", $"LV-STAGE support-cache-hit: provider={providerOI.ObjectName} orbit={sourceOrbit.ObjectName} target={requester.ObjectName} success={cached.Success} reason={cached.Reason ?? "none"}");
             return cached.Success;
+        }
+        if (key != null && _stagedRouteSupportCache.TryGetValue(key, out var runtimeCached))
+        {
+            support = runtimeCached;
+            if (snapshot?.StagedRouteSupportByKey != null)
+                snapshot.StagedRouteSupportByKey[key] = runtimeCached;
+            LogVerboseCoalesced($"lv-stage-runtime-cache|{key}", $"LV-STAGE support-runtime-cache-hit: provider={providerOI.ObjectName} orbit={sourceOrbit.ObjectName} target={requester.ObjectName} success={runtimeCached.Success} reason={runtimeCached.Reason ?? "none"}");
+            return runtimeCached.Success;
         }
 
         support = new StagedRouteSupport();
@@ -386,9 +395,145 @@ public static partial class LogisticsObserver
 
     private static void StoreStagedRouteSupport(PlannerSnapshot snapshot, string key, StagedRouteSupport support)
     {
-        if (snapshot?.StagedRouteSupportByKey == null || string.IsNullOrWhiteSpace(key) || support == null)
+        if (string.IsNullOrWhiteSpace(key) || support == null)
             return;
-        snapshot.StagedRouteSupportByKey[key] = support;
+        if (snapshot?.StagedRouteSupportByKey != null)
+            snapshot.StagedRouteSupportByKey[key] = support;
+
+        if (!_stagedRouteSupportCache.ContainsKey(key))
+            _stagedRouteSupportCacheOrder.Enqueue(key);
+        _stagedRouteSupportCache[key] = support;
+
+        while (_stagedRouteSupportCacheOrder.Count > MaxStagedRouteSupportCacheEntries)
+        {
+            var evict = _stagedRouteSupportCacheOrder.Dequeue();
+            _stagedRouteSupportCache.Remove(evict);
+        }
+    }
+
+    private static void ClearStagedRouteSupportCache(string reason)
+    {
+        if (_stagedRouteSupportCache.Count == 0)
+            return;
+        var count = _stagedRouteSupportCache.Count;
+        _stagedRouteSupportCache.Clear();
+        _stagedRouteSupportCacheOrder.Clear();
+        LogVerboseCoalesced($"lv-stage-cache-clear|{reason}", $"LV-STAGE support-cache-clear: reason={reason} entries={count}");
+    }
+
+    private static string BuildStagedRouteSupportCacheKey(ObjectInfo providerOI, ObjectInfo sourceOrbit, ObjectInfo requester,
+        Company player, Dictionary<string, int> scActive, Dictionary<string, int> lvActive,
+        Data.LogisticsProvider providerRule, PlannerSnapshot snapshot)
+    {
+        var routeKey = BuildStagedRouteSupportKey(providerOI, sourceOrbit, requester, providerRule);
+        if (routeKey == null)
+            return null;
+
+        return $"{routeKey}|availability={BuildStagedRouteAvailabilitySignature(providerOI, sourceOrbit, requester, player, scActive, lvActive, snapshot)}";
+    }
+
+    private static string BuildStagedRouteAvailabilitySignature(ObjectInfo providerOI, ObjectInfo sourceOrbit, ObjectInfo requester,
+        Company player, Dictionary<string, int> scActive, Dictionary<string, int> lvActive, PlannerSnapshot snapshot)
+    {
+        var providerData = Data.LogisticsNetwork.Get(providerOI);
+        var orbitData = Data.LogisticsNetwork.Get(sourceOrbit);
+        return string.Join(";",
+            $"lvq={BuildQuotaSignature(providerData?.launchVehicleQuota)}",
+            $"scq={BuildQuotaSignature(orbitData?.spacecraftQuota)}",
+            $"activeSC={BuildCountSignature(scActive)}",
+            $"activeLV={BuildCountSignature(lvActive)}",
+            $"committed={BuildCommittedShipSignature(snapshot)}",
+            $"launch={BuildLaunchSupportAvailabilitySignature(providerOI, player, snapshot)}",
+            $"ships={BuildFinalCarrierAvailabilitySignature(sourceOrbit, requester, player, snapshot)}");
+    }
+
+    private static string BuildQuotaSignature(IEnumerable<Data.ShipQuotaEntry> quotas)
+    {
+        if (quotas == null)
+            return "none";
+
+        var parts = quotas
+            .Where(q => q != null && q.count > 0)
+            .OrderBy(q => q.typeName ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .Select(q => $"{q.typeName ?? "unknown"}:{q.count}");
+        var signature = string.Join(",", parts);
+        return string.IsNullOrEmpty(signature) ? "none" : signature;
+    }
+
+    private static string BuildCountSignature(Dictionary<string, int> counts)
+    {
+        if (counts == null || counts.Count == 0)
+            return "none";
+
+        return string.Join(",", counts
+            .Where(pair => pair.Value != 0)
+            .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(pair => $"{pair.Key}:{pair.Value}"));
+    }
+
+    private static string BuildCommittedShipSignature(PlannerSnapshot snapshot)
+    {
+        if (snapshot?.CommittedShipIds == null || snapshot.CommittedShipIds.Count == 0)
+            return "none";
+
+        return string.Join(",", snapshot.CommittedShipIds.OrderBy(id => id));
+    }
+
+    private static string BuildLaunchSupportAvailabilitySignature(ObjectInfo providerOI, Company player, PlannerSnapshot snapshot)
+    {
+        var options = GetAvailableLaunchSupport(providerOI, player, snapshot);
+        if (options == null || options.Count == 0)
+            return "none";
+
+        var parts = options
+            .Where(option => option?.Vehicle != null
+                && option.Type != null
+                && option.Vehicle.GetCompany() == player
+                && option.Vehicle.objectInfo == providerOI
+                && option.Vehicle.IsReadyToLaunchReusable())
+            .OrderBy(option => Data.LogisticsNetwork.TypeKey(option.Type.ID, option.Type.Name ?? "LV"), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(option => option.Vehicle.ID)
+            .Select(option =>
+            {
+                var typeKey = Data.LogisticsNetwork.TypeKey(option.Type.ID, option.Type.Name ?? "LV");
+                var active = CountActiveLaunchVehicleUsesAt(providerOI, option.Type, player, snapshot);
+                return $"{typeKey}#{option.Vehicle.ID}:active={active}:tier={option.TierAdjustment}";
+            });
+        var signature = string.Join(",", parts);
+        return string.IsNullOrEmpty(signature) ? "none" : signature;
+    }
+
+    private static string BuildFinalCarrierAvailabilitySignature(ObjectInfo sourceOrbit, ObjectInfo requester,
+        Company player, PlannerSnapshot snapshot)
+    {
+        var ships = GetShipsAtLocation(sourceOrbit, player, snapshot)
+            .Where(sc => sc?.spacecraftType != null && !sc.spacecraftType.LowOrbitContainer)
+            .OrderBy(sc => sc.ID)
+            .ToList();
+        if (ships.Count == 0)
+            return "none";
+
+        var committed = snapshot?.CommittedShipIds;
+        return string.Join(",", ships.Select(sc =>
+        {
+            var type = sc.spacecraftType;
+            var typeKey = Data.LogisticsNetwork.TypeKey(type.ID, type.NameRocketType ?? "SC");
+            var available = IsSpacecraftAvailableForLogistics(sc, player, committed);
+            var inRange = IsSpacecraftInRangeForRouteNoLog(sc, requester, player);
+            var capacity = type.GetCargoCapacity(player);
+            return $"{sc.ID}:{typeKey}:phase={sc.CurrentPhase}:loc={sc.CurrentlyOnThisObject?.id ?? -1}:available={available}:range={inRange}:cap={capacity:0.#}";
+        }));
+    }
+
+    private static bool IsSpacecraftInRangeForRouteNoLog(Spacecraft sc, ObjectInfo routeTarget, Company player)
+    {
+        var type = sc?.spacecraftType;
+        if (type == null || player == null || routeTarget == null || !type.SolarSC)
+            return true;
+
+        var solarRange = type.GetSolarRange(player);
+        var targetDistance = routeTarget.DistanceToSunInAU;
+        return solarRange + 0.0001f >= targetDistance;
     }
 
     private static string BuildStagedRouteSupportKey(ObjectInfo providerOI, ObjectInfo sourceOrbit, ObjectInfo requester,

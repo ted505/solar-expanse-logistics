@@ -72,6 +72,8 @@ public static partial class LogisticsObserver
 
     private const int MaxReturnFuelProbeCacheEntries = 256;
 
+    private const int MaxStagedRouteSupportCacheEntries = 256;
+
     private static readonly TimeSpan ReturnCycleWallClockThrottle = TimeSpan.FromSeconds(10);
     // The dictionaries below are runtime-only safety rails around stock cycle creation.
     // They are cleared on save/load changes so a logistics state from one save cannot
@@ -94,6 +96,10 @@ public static partial class LogisticsObserver
     private static readonly Dictionary<PMMissionParameter, double> _protectedReturnReserveByParameter = new Dictionary<PMMissionParameter, double>();
 
     private static readonly Dictionary<string, DateTime> _routePlanningLocks = new Dictionary<string, DateTime>();
+
+    private static readonly Dictionary<string, StagedRouteSupport> _stagedRouteSupportCache = new Dictionary<string, StagedRouteSupport>();
+
+    private static readonly Queue<string> _stagedRouteSupportCacheOrder = new Queue<string>();
 
     private static readonly Dictionary<string, double> _committedStock = new Dictionary<string, double>();
 
@@ -459,6 +465,7 @@ public static partial class LogisticsObserver
         var protectedReserveCycleCount = _protectedReturnReserveByCycle.Count;
         var protectedReserveCount = _protectedReturnReserveByParameter.Count;
         var routeLockCount = _routePlanningLocks.Count;
+        var stagedRouteCacheCount = _stagedRouteSupportCache.Count;
         var committedCount = _committedStock.Count;
         var inFlightCount = _inFlightCargoLedger.Count;
         var throttleCount = _requestPlanThrottle.Count;
@@ -476,6 +483,8 @@ public static partial class LogisticsObserver
         _protectedReturnReserveByCycle.Clear();
         _protectedReturnReserveByParameter.Clear();
         _routePlanningLocks.Clear();
+        _stagedRouteSupportCache.Clear();
+        _stagedRouteSupportCacheOrder.Clear();
         _committedStock.Clear();
         _inFlightCargoLedger.Clear();
         _inFlightCargoLedgerNeedsRebuild = true;
@@ -494,7 +503,7 @@ public static partial class LogisticsObserver
         _nextOrphanTrajectoryScan = default;
         _nextNewDispatchWallClockUtc = default;
         if (VerboseLoggingEnabled)
-        LogVerbose($"RESET runtime-state: cycles={cycleCount} pending={pendingCount} returns={returnCount} failures={failCount} fuelProbes={fuelProbeCount} protectedReserveCargo={protectedReserveCargoCount} protectedReserveCycles={protectedReserveCycleCount} protectedReserves={protectedReserveCount} routeLocks={routeLockCount} committed={committedCount} inFlightLedger={inFlightCount} throttles={throttleCount} precalc={precalcCount} routeTiers={routeTierCount} knownMissions={knownMissionCount} coalescedLogs={coalescedLogCount}");
+        LogVerbose($"RESET runtime-state: cycles={cycleCount} pending={pendingCount} returns={returnCount} failures={failCount} fuelProbes={fuelProbeCount} protectedReserveCargo={protectedReserveCargoCount} protectedReserveCycles={protectedReserveCycleCount} protectedReserves={protectedReserveCount} routeLocks={routeLockCount} stagedRouteCache={stagedRouteCacheCount} committed={committedCount} inFlightLedger={inFlightCount} throttles={throttleCount} precalc={precalcCount} routeTiers={routeTierCount} knownMissions={knownMissionCount} coalescedLogs={coalescedLogCount}");
     }
 
     public static object BuildSdkDebugSnapshot()
@@ -538,6 +547,7 @@ public static partial class LogisticsObserver
                 pendingPlanning = _pendingPlanningDeliveries.Count,
                 returnHome = _returnHomeByShipId.Count,
                 returnFuelProbes = _returnFuelProbeCache.Count,
+                stagedRouteSupportCache = _stagedRouteSupportCache.Count,
                 routeLocks = _routePlanningLocks.Count,
                 committedStock = _committedStock.Count,
                 inFlightCargoLedger = _inFlightCargoLedger.Count,

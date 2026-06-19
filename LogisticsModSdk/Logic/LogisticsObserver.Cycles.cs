@@ -324,6 +324,7 @@ public static partial class LogisticsObserver
     {
         if (snapshot == null) return;
         snapshot.StagedRouteSupportByKey.Clear();
+        ClearStagedRouteSupportCache("dispatch-created");
         if (sc?.spacecraftType != null)
         {
             var tn = Data.LogisticsNetwork.TypeKey(sc.spacecraftType.ID, sc.spacecraftType.NameRocketType ?? "SC");
