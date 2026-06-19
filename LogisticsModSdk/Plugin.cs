@@ -22,6 +22,8 @@ public class Plugin : BaseUnityPlugin
     public static ConfigEntry<int> ReturnFuelMinimumDomesticReserveDays { get; private set; }
     public static ConfigEntry<double> CyclePlanningGraceDays { get; private set; }
     public static ConfigEntry<double> BlockedMissionRetryCooldownDays { get; private set; }
+    public static ConfigEntry<int> MaxNewDispatchesPerDay { get; private set; }
+    public static ConfigEntry<double> DispatchCreationCooldownMs { get; private set; }
     public static ConfigEntry<bool> VerboseLogging { get; private set; }
     public static ConfigEntry<double> VerboseLogCoalesceSeconds { get; private set; }
     public static ConfigEntry<double> LogFlushIntervalSeconds { get; private set; }
@@ -57,6 +59,10 @@ public class Plugin : BaseUnityPlugin
             "In-game days a freshly created LOGI cycle is considered 'still being planned' before being treated as stale. The async code job system normally fires inside this window; raise if you see spurious CLEANUP warnings under heavy time acceleration.");
         BlockedMissionRetryCooldownDays = _pluginConfig.Bind("Diagnostics", "BlockedMissionRetryCooldownDays", 30.0,
             "In-game days to wait before retrying the same blocked or stale logistics dispatch attempt.");
+        MaxNewDispatchesPerDay = _pluginConfig.Bind("Diagnostics", "MaxNewDispatchesPerDay", 3,
+            "Maximum new outbound logistics dispatches created during one daily planner pass. Existing in-flight/status work still runs.");
+        DispatchCreationCooldownMs = _pluginConfig.Bind("Diagnostics", "DispatchCreationCooldownMs", 100.0,
+            "Minimum wall-clock milliseconds between new outbound logistics dispatch creations. Reduces stock mission-planner spikes during high time acceleration.");
         VerboseLogging = _pluginConfig.Bind("Diagnostics", "VerboseLogging", false,
             "When enabled, per-request route and dispatch diagnostics are written to BepInEx/LogisticsMod_*.log.");
         VerboseLogCoalesceSeconds = _pluginConfig.Bind("Diagnostics", "VerboseLogCoalesceSeconds", 5.0,

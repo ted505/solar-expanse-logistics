@@ -245,6 +245,7 @@ public static partial class LogisticsObserver
 
         HashSet<ResourceDefinition> networkResources;
         networkResources = Data.LogisticsNetwork.GetNetworkResourcesSet(player, snapshot.Objects);
+        var newDispatchesThisTick = 0;
 
         foreach (var requesterOI in snapshot.Objects)
         {
@@ -484,12 +485,31 @@ public static partial class LogisticsObserver
                     continue;
                 }
 
+                if (ShouldPaceNewDispatch(newDispatchesThisTick, out var pacingStatus))
+                {
+                    req.status = hasActiveDelivery || !string.IsNullOrEmpty(blockedReturnNote)
+                        ? Data.LogisticsRequestStatus.InProgress
+                        : Data.LogisticsRequestStatus.Pending;
+                    req.statusNote = !string.IsNullOrEmpty(blockedReturnNote)
+                        ? $"{blockedReturnNote}; {pacingStatus}"
+                        : pacingStatus;
+                    LogVerboseCoalesced($"dispatch-pacing|{requesterOI?.id}|{rd.ID}", $"DISPATCH pacing-skip: target={requesterOI?.ObjectName} rd={rd.ID} count={newDispatchesThisTick} max={MaxNewDispatchesPerDay} nextWallClock={_nextNewDispatchWallClockUtc:O}");
+                    continue;
+                }
+
                 req.status = hasActiveDelivery
                     ? Data.LogisticsRequestStatus.InProgress
                     : Data.LogisticsRequestStatus.Pending;
-                var pendingReason = TryCreateDeliveries(req, requesterOI, rd, remaining, player, snapshot);
+                var pendingReason = TryCreateDeliveries(req, requesterOI, rd, remaining, player, out var createdDispatch, snapshot);
                 if (string.IsNullOrEmpty(pendingReason))
+                {
                     ClearRequestPlanningThrottle(requesterOI, rd);
+                    if (createdDispatch)
+                    {
+                        newDispatchesThisTick++;
+                        MarkNewDispatchCreated();
+                    }
+                }
                 else
                     MarkRequestPlanningEvaluated(requesterOI, rd, planningSignature);
                 if ((req.status == Data.LogisticsRequestStatus.Pending || hasActiveDelivery) && !string.IsNullOrEmpty(pendingReason))
@@ -616,10 +636,43 @@ public static partial class LogisticsObserver
         _requestPlanThrottle.Remove(PendingDeliveryKey(requester, rd));
     }
 
+    private static bool ShouldPaceNewDispatch(int newDispatchesThisTick, out string statusNote)
+    {
+        statusNote = null;
+        if (newDispatchesThisTick >= MaxNewDispatchesPerDay)
+        {
+            statusNote = "Waiting for logistics dispatch pacing";
+            return true;
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        if (_nextNewDispatchWallClockUtc != default && nowUtc < _nextNewDispatchWallClockUtc)
+        {
+            var ms = Math.Max(0, (_nextNewDispatchWallClockUtc - nowUtc).TotalMilliseconds);
+            statusNote = $"Waiting for logistics dispatch pacing ({ms:0}ms)";
+            return true;
+        }
+
+        return false;
+    }
+
+    private static void MarkNewDispatchCreated()
+    {
+        var cooldownMs = DispatchCreationCooldownMs;
+        if (cooldownMs <= 0)
+        {
+            _nextNewDispatchWallClockUtc = default;
+            return;
+        }
+
+        _nextNewDispatchWallClockUtc = DateTime.UtcNow.AddMilliseconds(cooldownMs);
+    }
+
     private static bool IsTransientPlanningStatus(string statusNote)
     {
         return !string.IsNullOrEmpty(statusNote)
             && (statusNote.StartsWith("Planning mission", StringComparison.Ordinal)
+                || statusNote.StartsWith("Waiting for logistics dispatch pacing", StringComparison.Ordinal)
                 || statusNote.StartsWith("Waiting to re-check logistics options", StringComparison.Ordinal));
     }
 

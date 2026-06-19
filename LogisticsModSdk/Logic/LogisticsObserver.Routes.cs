@@ -58,6 +58,13 @@ public static partial class LogisticsObserver
     private static string TryCreateDeliveries(Data.LogisticsRequest req, ObjectInfo requester,
         ResourceDefinition rd, double remaining, Company player, PlannerSnapshot snapshot = null)
     {
+        return TryCreateDeliveries(req, requester, rd, remaining, player, out _, snapshot);
+    }
+
+    private static string TryCreateDeliveries(Data.LogisticsRequest req, ObjectInfo requester,
+        ResourceDefinition rd, double remaining, Company player, out bool createdDispatch, PlannerSnapshot snapshot = null)
+    {
+        createdDispatch = false;
         using (TimeScope($"TryCreateDeliveries {requester?.ObjectName ?? "null"} {rd?.ID ?? "null"}"))
         {
         var cm = MonoBehaviourSingleton<CycleMissionManager>.Instance;
@@ -100,8 +107,9 @@ public static partial class LogisticsObserver
         {
             if (VerboseLoggingEnabled)
                 LogBepInEx($"ROUTE candidate: rd={rd.ID} kind={candidate.Kind} label={candidate.Label} score={candidate.Tier} usesLV={candidate.UsesLV} hops={candidate.HopCount} available={candidate.Available:0.#} amount={candidate.Amount:0.#} detail={candidate.ScoreBreakdown}");
-            if (ExecuteRouteCandidate(candidate, req, requester, rd, player, snapshot))
+            if (ExecuteRouteCandidate(candidate, req, requester, rd, player, out var candidateCreatedDispatch, snapshot))
             {
+                createdDispatch = candidateCreatedDispatch;
                 CloseReorderLatchIfTargetCovered(req, requester, rd, player, snapshot);
                 return null;
             }
@@ -499,8 +507,9 @@ public static partial class LogisticsObserver
     }
 
     private static bool ExecuteRouteCandidate(RouteCandidate candidate, Data.LogisticsRequest req,
-        ObjectInfo requester, ResourceDefinition rd, Company player, PlannerSnapshot snapshot = null)
+        ObjectInfo requester, ResourceDefinition rd, Company player, out bool createdDispatch, PlannerSnapshot snapshot = null)
     {
+        createdDispatch = false;
         using (TimeScope($"ExecuteRouteCandidate {candidate?.Kind.ToString() ?? "null"} {requester?.ObjectName ?? "null"} {rd?.ID ?? "null"}"))
         {
         if (candidate == null || req == null || requester == null || rd == null || player == null)
@@ -521,6 +530,7 @@ public static partial class LogisticsObserver
                         LogVerbose($"PROC ranked: {rd.ID} x{candidate.Amount:0.#} {candidate.Label} kind={candidate.Kind}");
                         LogBepInEx($"ROUTE chosen: rd={rd.ID} kind={candidate.Kind} label={candidate.Label} score={candidate.Tier} detail={candidate.ScoreBreakdown}");
                     }
+                    createdDispatch = true;
                     return true;
                 }
                 if (IsWaitingForReturnFuelProbe(req))
@@ -545,6 +555,7 @@ public static partial class LogisticsObserver
                         LogVerbose($"PROC ranked: {rd.ID} x{candidate.Amount:0.#} {candidate.Label} kind={candidate.Kind}");
                         LogBepInEx($"ROUTE chosen: rd={rd.ID} kind={candidate.Kind} label={candidate.Label} score={candidate.Tier} detail={candidate.ScoreBreakdown}");
                     }
+                    createdDispatch = true;
                     return true;
                 }
                 if (IsWaitingForReturnFuelProbe(req))
@@ -569,6 +580,7 @@ public static partial class LogisticsObserver
                         LogVerbose($"PROC ranked: {rd.ID} x{candidate.Amount:0.#} {candidate.Label} kind={candidate.Kind}");
                         LogBepInEx($"ROUTE chosen: rd={rd.ID} kind={candidate.Kind} label={candidate.Label} score={candidate.Tier} detail={candidate.ScoreBreakdown}");
                     }
+                    createdDispatch = true;
                     return true;
                 }
 
@@ -629,6 +641,7 @@ public static partial class LogisticsObserver
         req.statusNote = LogisticsStrings.ShippingFrom(sourceOrbit);
         if (VerboseLoggingEnabled)
             LogVerbose($"RELAY final-leg-dispatch: rd={rd.ID} sourceOrbit={sourceOrbit.ObjectName} target={requester.ObjectName} amount={amount:0.#}");
+        MarkNewDispatchCreated();
         return true;
     }
 }

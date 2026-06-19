@@ -70,7 +70,7 @@ public static partial class LogisticsObserver
             return true;
         }
         if (hasActiveFinalDelivery)
-            LogVerbose($"RELAY final-leg-active: target={finalTargetOI.ObjectName} rd={rd.ID}; checking whether additional staged cargo is still needed");
+            LogVerboseCoalesced($"relay-final-active|{finalTargetOI.id}|{rd.ID}", $"RELAY final-leg-active: target={finalTargetOI.ObjectName} rd={rd.ID}; checking whether additional staged cargo is still needed");
 
         var committedFromOrbit = GetCommittedStock(orbitOI, rd);
         var rawStagedStock = orbitOI.GetObjectInfoData(player)?.CheckResources(rd) ?? 0;
@@ -207,7 +207,7 @@ public static partial class LogisticsObserver
                 + CargoAmountFor(mi.cargoAll.listCargoToOrbit, rd);
             if (cargoAmount <= 0) continue;
 
-            LogVerbose($"REQ active-mission-present: target={requester.ObjectName} rd={rd.ID} mission={mi.id} name=\"{mi.missionName}\" launch={mi.DateLaunch:yyyy-MM-dd} amount={cargoAmount:0.#}");
+            LogVerboseCoalesced($"req-active-mission|{requester.id}|{rd.ID}|{mi.id}", $"REQ active-mission-present: target={requester.ObjectName} rd={rd.ID} mission={mi.id} name=\"{mi.missionName}\" launch={mi.DateLaunch:yyyy-MM-dd} amount={cargoAmount:0.#}");
             return true;
         }
 

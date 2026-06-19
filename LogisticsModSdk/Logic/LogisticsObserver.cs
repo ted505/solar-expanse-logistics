@@ -60,6 +60,10 @@ public static partial class LogisticsObserver
 
     private static double BlockedMissionRetryCooldownDays => Math.Max(30.0, LogisticsModSdk.Plugin.BlockedMissionRetryCooldownDays?.Value ?? 30.0);
 
+    private static int MaxNewDispatchesPerDay => Math.Max(1, LogisticsModSdk.Plugin.MaxNewDispatchesPerDay?.Value ?? 3);
+
+    private static double DispatchCreationCooldownMs => Math.Max(0, LogisticsModSdk.Plugin.DispatchCreationCooldownMs?.Value ?? 100.0);
+
     private const double ReturnCycleBlockedCooldownDays = 30.0;
 
     private const double ReturnCycleEscalatedCooldownDays = 180.0;
@@ -112,6 +116,8 @@ public static partial class LogisticsObserver
     private static DateTime _nextCompletedTrajectoryScan;
 
     private static DateTime _nextOrphanTrajectoryScan;
+
+    private static DateTime _nextNewDispatchWallClockUtc;
 
     private const double CommittedStockWindowSeconds = 1.0;
 
@@ -465,6 +471,7 @@ public static partial class LogisticsObserver
         _cachedSpacecraft = null;
         _nextCompletedTrajectoryScan = default;
         _nextOrphanTrajectoryScan = default;
+        _nextNewDispatchWallClockUtc = default;
         if (VerboseLoggingEnabled)
         LogVerbose($"RESET runtime-state: cycles={cycleCount} pending={pendingCount} returns={returnCount} failures={failCount} fuelProbes={fuelProbeCount} protectedReserveCargo={protectedReserveCargoCount} protectedReserveCycles={protectedReserveCycleCount} protectedReserves={protectedReserveCount} routeLocks={routeLockCount} committed={committedCount} throttles={throttleCount} precalc={precalcCount} routeTiers={routeTierCount} knownMissions={knownMissionCount} coalescedLogs={coalescedLogCount}");
     }

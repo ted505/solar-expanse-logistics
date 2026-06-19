@@ -18,6 +18,8 @@ All settings are in `BepInEx/plugins/logisticsmodsdk/LogisticsModSdk.cfg`. The f
 |-----|---------|-------------|
 | `CyclePlanningGraceDays` | `3.0` | In-game days a freshly created LOGI cycle is considered "still being planned" before the cleanup pass treats it as stale. Raise if you see spurious CLEANUP warnings under heavy time acceleration. |
 | `BlockedMissionRetryCooldownDays` | `30.0` | In-game days to wait before retrying the same blocked or stale logistics dispatch attempt. |
+| `MaxNewDispatchesPerDay` | `3` | Maximum new outbound logistics dispatches created during one daily planner pass. Existing status, stock, in-flight, return, and relay checks still run. |
+| `DispatchCreationCooldownMs` | `100.0` | Minimum wall-clock milliseconds between new outbound logistics dispatch creations. This smooths stock mission-planner spikes during high time acceleration without blocking later parallel launches. |
 | `VerboseLogging` | `false` | Enables per-request route diagnostics, dispatch traces, naming traces, and stock callback details. Writes to `BepInEx/LogisticsMod_*.log`. |
 | `VerboseLogCoalesceSeconds` | `5.0` | Wall-clock window for coalescing repeated high-volume verbose lines such as cooldowns and return-fuel shortfalls. Suppressed counts are appended to the next emitted line. Set to `0` to write every line. |
 | `LogFlushIntervalSeconds` | `2.0` | Wall-clock interval for flushing buffered verbose logs to disk. Warnings and errors flush immediately. Lower values are safer for crash forensics; higher values reduce disk I/O. |
