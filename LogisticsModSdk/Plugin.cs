@@ -43,7 +43,7 @@ public class Plugin : BaseUnityPlugin
         // BepInEx's shared config root so release zips can include sane defaults.
         ReturnFuelEnabled = _pluginConfig.Bind("ReturnFuel", "Enabled", true,
             "When enabled, logistics missions try to stage enough fuel at the destination for the logistics vessel to return.");
-        ReturnFuelSafetyMultiplier = _pluginConfig.Bind("ReturnFuel", "SafetyMultiplier", 1.5,
+        ReturnFuelSafetyMultiplier = _pluginConfig.Bind("ReturnFuel", "SafetyMultiplier", 1.1,
             "Multiplier applied to the estimated return fuel reserve.");
         ReturnFuelReserveCargoFirst = _pluginConfig.Bind("ReturnFuel", "ReserveCargoFirst", true,
             "When enabled, return-fuel reserve cargo is prioritized over the requested logistics cargo.");

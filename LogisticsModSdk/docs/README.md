@@ -1,4 +1,4 @@
-# LogisticsMod
+# LogisticsModSdk
 
 Automated inter-body resource logistics for Solar Expanse. Adds a **Logistics** tab to the Object Info window where players configure import (GET) and export (SEND) rules, assign spacecraft and launch vehicle quotas, and let the mod handle mission planning, dispatch, and return trips automatically.
 
@@ -9,30 +9,30 @@ Automated inter-body resource logistics for Solar Expanse. Adds a **Logistics** 
 
 ## Installation
 
-Copy the built `LogisticsMod.dll` into:
+Copy the built `LogisticsModSdk.dll` into:
 
 ```
-<Steam>/steamapps/common/Solar Expanse/BepInEx/plugins/logisticsmod/
+<Steam>/steamapps/common/Solar Expanse/BepInEx/plugins/logisticsmodsdk/
 ```
 
 Configuration lives alongside the DLL at:
 
 ```
-<Steam>/steamapps/common/Solar Expanse/BepInEx/plugins/logisticsmod/LogisticsMod.cfg
+<Steam>/steamapps/common/Solar Expanse/BepInEx/plugins/logisticsmodsdk/LogisticsModSdk.cfg
 ```
 
 ## Build
 
 ```
-dotnet build LogisticsMod.csproj -c Release
+dotnet build LogisticsModSdk.csproj -c Release
 ```
 
-Output deploys directly to the BepInEx plugins folder via the project's post-build target. A copy is also placed at the repository root (`Documents/SolarExpanseMods/LogisticsMod.dll`).
+Output deploys directly to the BepInEx plugins folder via the project's post-build target. A copy is also placed in the repo-local `plugins` folder.
 
 ## Project Structure
 
 ```
-LogisticsMod/
+LogisticsModSdk/
   Plugin.cs                          Entry point, config bindings, Harmony patching
   Data/
     LogisticsTypes.cs                Data model: requests, providers, quotas, enums

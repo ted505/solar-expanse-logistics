@@ -59,12 +59,12 @@ Sources are ranked by proximity and cost: destination orbit is preferred, then l
 
 ## Configuration
 
-Settings are in `BepInEx/plugins/logisticsmod/LogisticsMod.cfg`, created on first launch.
+Settings are in `BepInEx/plugins/logisticsmodsdk/LogisticsModSdk.cfg`, created on first launch.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Return Fuel Enabled | `true` | Reserve return fuel in outbound manifests |
-| Safety Multiplier | `1.5` | Multiplier on estimated return fuel |
+| Safety Multiplier | `1.1` | Multiplier on estimated return fuel |
 | Reserve Cargo First | `true` | Prioritize return fuel over logistics cargo |
 | Blocked Retry Cooldown | `30 days` | Wait before retrying a blocked dispatch |
 | Verbose Logging | `false` | Detailed route and dispatch diagnostics |

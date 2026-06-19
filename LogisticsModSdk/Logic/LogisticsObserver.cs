@@ -183,6 +183,8 @@ public static partial class LogisticsObserver
         public double AllFuelNeed;
         public double LeftOverFuel;
         public double RequiredReserve;
+        public double MaxTankFuel;
+        public bool ReturnPlanOverTank;
         public PMMissionParameter.EPlanMissionResult Result;
         public string FailureReason;
     }

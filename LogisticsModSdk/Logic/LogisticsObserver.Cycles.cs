@@ -647,9 +647,18 @@ public static partial class LogisticsObserver
 
         if (VerboseLoggingEnabled)
             LogVerbose($"RETURNFUEL bootstrap-dispatch: blockedResource={blockedResource.ID} target={requesterOI.ObjectName} fuel={fuelType.ID} shortfall={fuelShortfall:0.#} current={current:0.#} inFlight={inFlight:0.#}");
-        TryCreateDeliveries(fakeFuelReq, requesterOI, fuelType, fuelShortfall, player);
+        var bootstrapStatus = TryCreateDeliveries(fakeFuelReq, requesterOI, fuelType, fuelShortfall, player);
         blockedReq.status = Data.LogisticsRequestStatus.InProgress;
-        blockedReq.statusNote = LogisticsStrings.WaitingForReturnFuel(fuelType, requesterOI);
+        blockedReq.statusNote = string.IsNullOrWhiteSpace(bootstrapStatus)
+            ? LogisticsStrings.WaitingForReturnFuel(fuelType, requesterOI)
+            : $"{LogisticsStrings.WaitingForReturnFuel(fuelType, requesterOI)}; {bootstrapStatus}";
+
+        if (!string.IsNullOrWhiteSpace(bootstrapStatus))
+        {
+            var reason = $"Return fuel bootstrap blocked for {fuelType.ID} at {requesterOI.ObjectName}: {bootstrapStatus}";
+            MarkBlockedPlanningRetryCooldown(requesterOI, blockedResource, reason);
+            LogVerbose($"RETURNFUEL bootstrap-blocked: blockedResource={blockedResource.ID} target={requesterOI.ObjectName} fuel={fuelType.ID} reason=\"{bootstrapStatus}\"");
+        }
         return true;
     }
 
