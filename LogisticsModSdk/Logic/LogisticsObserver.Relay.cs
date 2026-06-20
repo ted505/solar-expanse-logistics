@@ -43,7 +43,7 @@ public static partial class LogisticsObserver
             if (HasActiveCycleDelivering(orbitOI, rd, player, snapshot) || HasPendingPlanningDelivery(orbitOI, rd))
             {
                 req.status = Data.LogisticsRequestStatus.InProgress;
-                req.statusNote = LogisticsStrings.StagingTo(orbitOI);
+                SetProgressStatusNote(req, LogisticsStrings.StagingTo(orbitOI));
                 return true;
             }
 
@@ -52,7 +52,7 @@ public static partial class LogisticsObserver
             {
                 req.relayStage = Data.RelayStage.WaitingForFinalLeg;
                 req.status = Data.LogisticsRequestStatus.InProgress;
-                req.statusNote = LogisticsStrings.StagedAt(orbitOI);
+                SetProgressStatusNote(req, LogisticsStrings.StagedAt(orbitOI));
                 if (VerboseLoggingEnabled)
                     LogVerbose($"RELAY staged-stock-ready: rd={rd.ID} source={sourceOI.ObjectName} orbit={orbitOI.ObjectName} target={finalTargetOI.ObjectName} stock={orbitStock:0.#}");
                 return true;
@@ -66,7 +66,7 @@ public static partial class LogisticsObserver
         if (HasPendingPlanningDelivery(finalTargetOI, rd))
         {
             req.status = Data.LogisticsRequestStatus.InProgress;
-            req.statusNote = LogisticsStrings.ShippingFrom(orbitOI);
+            SetProgressStatusNote(req, LogisticsStrings.ShippingFrom(orbitOI));
             return true;
         }
         if (hasActiveFinalDelivery)
@@ -79,7 +79,7 @@ public static partial class LogisticsObserver
         if (committedFromOrbit > 0 && stagedStock <= 0)
         {
             req.status = Data.LogisticsRequestStatus.InProgress;
-            req.statusNote = $"Waiting for prior shipment from {orbitOI.ObjectName}";
+            SetProgressStatusNote(req, $"Waiting for prior shipment from {orbitOI.ObjectName}");
             LogVerbose($"RELAY serialized-wait: rd={rd.ID} orbit={orbitOI.ObjectName} target={finalTargetOI.ObjectName} rawStaged={rawStagedStock:0.#} committed={committedFromOrbit:0.#}");
             return true;
         }
@@ -97,7 +97,7 @@ public static partial class LogisticsObserver
         if (remaining <= 0)
         {
             req.status = Data.LogisticsRequestStatus.InProgress;
-            req.statusNote = LogisticsStrings.ShippingFrom(orbitOI);
+            SetProgressStatusNote(req, LogisticsStrings.ShippingFrom(orbitOI));
             return true;
         }
 
@@ -105,7 +105,7 @@ public static partial class LogisticsObserver
         if (committedFromOrbit > 0 && stagedStock < usefulFinalLoad)
         {
             req.status = Data.LogisticsRequestStatus.InProgress;
-            req.statusNote = $"Waiting for prior shipment from {orbitOI.ObjectName}";
+            SetProgressStatusNote(req, $"Waiting for prior shipment from {orbitOI.ObjectName}");
             LogVerbose($"RELAY serialized-wait: rd={rd.ID} orbit={orbitOI.ObjectName} target={finalTargetOI.ObjectName} staged={stagedStock:0.#} committed={committedFromOrbit:0.#} usefulLoad={usefulFinalLoad:0.#}");
             return true;
         }
@@ -121,7 +121,7 @@ public static partial class LogisticsObserver
             return true;
 
         req.status = Data.LogisticsRequestStatus.InProgress;
-        req.statusNote = LogisticsStrings.WaitingForSpacecraftAt(orbitOI);
+        SetProgressStatusNote(req, LogisticsStrings.WaitingForSpacecraftAt(orbitOI));
         return true;
     }
 

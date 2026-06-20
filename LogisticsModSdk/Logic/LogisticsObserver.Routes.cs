@@ -604,7 +604,7 @@ public static partial class LogisticsObserver
                 {
                     RecordDispatchInSnapshot(snapshot, candidate.StageCarrier, candidate.LaunchVehicleType);
                     req.status = Data.LogisticsRequestStatus.InProgress;
-                    req.statusNote = LogisticsStrings.StagingTo(candidate.StageOrbit);
+                    SetProgressStatusNote(req, LogisticsStrings.StagingTo(candidate.StageOrbit));
                     if (VerboseLoggingEnabled)
                     {
                         LogVerbose($"PROC ranked: {rd.ID} x{candidate.Amount:0.#} {candidate.Label} kind={candidate.Kind}");
@@ -633,7 +633,7 @@ public static partial class LogisticsObserver
         if (HasRoutePlanningLock(sourceOrbit, requester, rd, player, out var lockStatus))
         {
             req.status = Data.LogisticsRequestStatus.InProgress;
-            req.statusNote = lockStatus;
+            SetProgressStatusNote(req, lockStatus);
             return true;
         }
 
@@ -651,7 +651,7 @@ public static partial class LogisticsObserver
         if (!MeetsMinimumShipment(sourceOrbit, carrier, amount, out var minimumReason, providerRule))
         {
             req.status = Data.LogisticsRequestStatus.InProgress;
-            req.statusNote = minimumReason;
+            SetProgressStatusNote(req, minimumReason);
             LogVerbose($"RELAY final-leg-wait-minimum: rd={rd.ID} sourceOrbit={sourceOrbit.ObjectName} target={requester.ObjectName} amount={amount:0.#} reason={minimumReason}");
             return true;
         }
@@ -668,7 +668,7 @@ public static partial class LogisticsObserver
         RecordDispatchInSnapshot(snapshot, carrier, null);
         req.relayStage = Data.RelayStage.WaitingForFinalLeg;
         req.status = Data.LogisticsRequestStatus.InProgress;
-        req.statusNote = LogisticsStrings.ShippingFrom(sourceOrbit);
+        SetProgressStatusNote(req, LogisticsStrings.ShippingFrom(sourceOrbit));
         if (VerboseLoggingEnabled)
             LogVerbose($"RELAY final-leg-dispatch: rd={rd.ID} sourceOrbit={sourceOrbit.ObjectName} target={requester.ObjectName} amount={amount:0.#}");
         MarkNewDispatchCreated();

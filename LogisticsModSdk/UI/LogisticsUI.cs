@@ -392,9 +392,9 @@ public class LogisticsUI : MonoBehaviour
                 if (!Data.LogisticsResourceFilter.IsSupported(rd))
                     continue;
                 var displayName = ResourceLabel(rd, req.resourceDef?.id);
-                var statusStr = StatusToString(req.status);
-                var noteStr = !string.IsNullOrEmpty(req.statusNote) ? $" ({req.statusNote})" : "";
-                var transitStr = BuildTransitInfoSuffix(req, rd);
+                var displayStatus = LogisticsObserver.GetRequestDisplayStatus(req, _currentObjectInfo, rd);
+                var statusStr = displayStatus.Label;
+                var noteStr = !string.IsNullOrEmpty(displayStatus.Note) ? $" ({displayStatus.Note})" : "";
                 var getExpandKey = $"{_currentObjectInfo?.id ?? -1}:get:{idx}:{rd?.ID ?? req.resourceDef?.id ?? "resource"}";
                 var inboundStatuses = LogisticsObserver.GetAllShipsForGetRequest(_currentObjectInfo, rd);
                 var hasInboundStatuses = inboundStatuses.Count > 0;
@@ -423,7 +423,7 @@ public class LogisticsUI : MonoBehaviour
                     netText = req.networkId == Data.LogisticsNetwork.LocalSystemNetworkId ? " <color=#88BBDD>[Local]</color>"
                         : req.networkId > 0 ? $" <color=#88BBDD>[N{req.networkId}]</color>" : "";
                 }
-                var labelTmp = MakeTMP(row.transform, $"<b><color=#EEEEF0>{displayName}</color></b>: {amountText}{modeText}{autoBuyText}{netText}  [{statusStr}]{noteStr}{transitStr}", 13, StatusColor(req.status));
+                var labelTmp = MakeTMP(row.transform, $"<b><color=#EEEEF0>{displayName}</color></b>: {amountText}{modeText}{autoBuyText}{netText}  [{statusStr}]{noteStr}", 13, StatusColor(displayStatus.State));
                 labelTmp.enableWordWrapping = true;
                 labelTmp.overflowMode = TextOverflowModes.Overflow;
                 labelTmp.alignment = TextAlignmentOptions.MidlineLeft;
@@ -635,7 +635,7 @@ public class LogisticsUI : MonoBehaviour
         }
 
         foreach (var ship in statuses)
-            AddShipStatusRow(_getSection.ContentArea, ship, detailBg, 104f, 30);
+            AddShipStatusRow(_getSection.ContentArea, ship, detailBg, 104f, 48);
     }
 
     private static bool MissionCarriesResource(MissionInfo mission, ResourceDefinition rd)
@@ -792,7 +792,7 @@ public class LogisticsUI : MonoBehaviour
         }
 
         foreach (var ship in statuses)
-            AddShipStatusRow(_sendSection.ContentArea, ship, detailBg, 104f, 30);
+            AddShipStatusRow(_sendSection.ContentArea, ship, detailBg, 104f, 48);
     }
 
     private void BuildSCSection()
@@ -2972,6 +2972,14 @@ public class LogisticsUI : MonoBehaviour
         _ => "?"
     };
 
+    private static Color StatusColor(LogisticsObserver.ShipState s) => s switch
+    {
+        LogisticsObserver.ShipState.Pending => new Color(0.8f, 0.72f, 0.3f, 1f),
+        LogisticsObserver.ShipState.InTransit => new Color(0.45f, 0.65f, 0.9f, 1f),
+        LogisticsObserver.ShipState.Idle => new Color(0.5f, 0.75f, 0.5f, 1f),
+        LogisticsObserver.ShipState.Blocked => new Color(0.85f, 0.4f, 0.35f, 1f),
+        _ => new Color(0.5f, 0.5f, 0.5f, 1f)
+    };
     private static Color StatusColor(Data.LogisticsRequestStatus s) => s switch
     {
         Data.LogisticsRequestStatus.Pending => new Color(0.7f, 0.7f, 0.3f, 1f),

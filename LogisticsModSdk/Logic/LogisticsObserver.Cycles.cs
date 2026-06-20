@@ -757,13 +757,13 @@ public static partial class LogisticsObserver
         if (amount <= 0) return false;
         if (!MeetsProviderMinimumShipment(realProvider, rd, amount, out var providerMinimumReason))
         {
-            req.statusNote = providerMinimumReason;
+            SetProgressStatusNote(req, providerMinimumReason);
             LogVerbose($"SKIP cycle: {providerMinimumReason} route={realProvider?.ObjectName}->{requesterOI?.ObjectName} rd={rd.ID}");
             return false;
         }
         if (!MeetsMinimumShipment(realProvider, sc, amount, out var minimumReason, providerRule))
         {
-            req.statusNote = minimumReason;
+            SetProgressStatusNote(req, minimumReason);
             LogVerbose($"SKIP cycle: {minimumReason} route={realProvider?.ObjectName}->{requesterOI?.ObjectName} rd={rd.ID}");
             return false;
         }
@@ -778,7 +778,7 @@ public static partial class LogisticsObserver
             if (waitingForFuelProbe)
             {
                 req.status = Data.LogisticsRequestStatus.InProgress;
-                req.statusNote = "Calculating return fuel reserve";
+                SetProgressStatusNote(req, "Calculating return fuel reserve");
             }
             LogWarningCoalesced($"skip-returnfuel-cycle|{realProvider?.id}|{requesterOI?.id}|{rd.ID}", $"SKIP cycle: return fuel reserve could not be manifested for {realProvider?.ObjectName}->{requesterOI?.ObjectName} rd={rd.ID} requested={amount:0.#}");
             return false;
@@ -786,13 +786,13 @@ public static partial class LogisticsObserver
         amount = normalCargo;
         if (!MeetsProviderMinimumShipment(realProvider, rd, amount, out providerMinimumReason))
         {
-            req.statusNote = providerMinimumReason;
+            SetProgressStatusNote(req, providerMinimumReason);
             LogVerbose($"SKIP cycle: post-manifest {providerMinimumReason} route={realProvider?.ObjectName}->{requesterOI?.ObjectName} rd={rd.ID} manifest={FormatCargo(cargoToB)}");
             return false;
         }
         if (!MeetsMinimumShipment(realProvider, sc, amount, out minimumReason, providerRule))
         {
-            req.statusNote = minimumReason;
+            SetProgressStatusNote(req, minimumReason);
             LogVerbose($"SKIP cycle: post-manifest {minimumReason} route={realProvider?.ObjectName}->{requesterOI?.ObjectName} rd={rd.ID} manifest={FormatCargo(cargoToB)}");
             return false;
         }
@@ -816,7 +816,7 @@ public static partial class LogisticsObserver
         if (!TryAcquireRoutePlanningLock(realProvider, requesterOI, rd, player, out var routeLockKey))
         {
             req.status = Data.LogisticsRequestStatus.InProgress;
-            req.statusNote = $"Planning mission for {realProvider.ObjectName} -> {requesterOI.ObjectName}";
+            SetProgressStatusNote(req, $"Planning mission for {realProvider.ObjectName} -> {requesterOI.ObjectName}");
             return false;
         }
 
@@ -916,13 +916,13 @@ public static partial class LogisticsObserver
         if (amount <= 0) return false;
         if (!MeetsProviderMinimumShipment(realProvider, rd, amount, out var providerMinimumReason))
         {
-            req.statusNote = providerMinimumReason;
+            SetProgressStatusNote(req, providerMinimumReason);
             LogVerbose($"SKIP LV cycle: {providerMinimumReason} route={realProvider?.ObjectName}->{requesterOI?.ObjectName} rd={rd.ID}");
             return false;
         }
         if (!MeetsMinimumShipment(realProvider, container, amount, out var minimumReason, providerRule))
         {
-            req.statusNote = minimumReason;
+            SetProgressStatusNote(req, minimumReason);
             LogVerbose($"SKIP LV cycle: {minimumReason} route={realProvider?.ObjectName}->{requesterOI?.ObjectName} rd={rd.ID}");
             return false;
         }
@@ -937,7 +937,7 @@ public static partial class LogisticsObserver
             if (waitingForFuelProbe)
             {
                 req.status = Data.LogisticsRequestStatus.InProgress;
-                req.statusNote = "Calculating return fuel reserve";
+                SetProgressStatusNote(req, "Calculating return fuel reserve");
             }
             LogWarningCoalesced($"skip-returnfuel-lv|{realProvider?.id}|{requesterOI?.id}|{rd.ID}", $"SKIP LV cycle: return fuel reserve could not be manifested for {realProvider?.ObjectName}->{requesterOI?.ObjectName} rd={rd.ID} requested={amount:0.#}");
             return false;
@@ -945,13 +945,13 @@ public static partial class LogisticsObserver
         amount = normalCargo;
         if (!MeetsProviderMinimumShipment(realProvider, rd, amount, out providerMinimumReason))
         {
-            req.statusNote = providerMinimumReason;
+            SetProgressStatusNote(req, providerMinimumReason);
             LogVerbose($"SKIP LV cycle: post-manifest {providerMinimumReason} route={realProvider?.ObjectName}->{requesterOI?.ObjectName} rd={rd.ID} manifest={FormatCargo(cargoToB)}");
             return false;
         }
         if (!MeetsMinimumShipment(realProvider, container, amount, out minimumReason, providerRule))
         {
-            req.statusNote = minimumReason;
+            SetProgressStatusNote(req, minimumReason);
             LogVerbose($"SKIP LV cycle: post-manifest {minimumReason} route={realProvider?.ObjectName}->{requesterOI?.ObjectName} rd={rd.ID} manifest={FormatCargo(cargoToB)}");
             return false;
         }
@@ -977,7 +977,7 @@ public static partial class LogisticsObserver
         if (!TryAcquireRoutePlanningLock(realProvider, requesterOI, rd, player, out var routeLockKey))
         {
             req.status = Data.LogisticsRequestStatus.InProgress;
-            req.statusNote = $"Planning mission for {realProvider.ObjectName} -> {requesterOI.ObjectName}";
+            SetProgressStatusNote(req, $"Planning mission for {realProvider.ObjectName} -> {requesterOI.ObjectName}");
             return false;
         }
 

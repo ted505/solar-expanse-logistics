@@ -54,6 +54,57 @@ public static partial class LogisticsObserver
         public ShipState State;
     }
 
+    public struct RequestDisplayStatus
+    {
+        public ShipState State;
+        public string Label;
+        public string Note;
+    }
+
+    public static RequestDisplayStatus GetRequestDisplayStatus(Data.LogisticsRequest req, ObjectInfo requester, ResourceDefinition rd)
+    {
+        var note = NormalizeStatusNote(req?.statusNote);
+        if (req == null)
+            return new RequestDisplayStatus { State = ShipState.Idle, Label = LogisticsStrings.StatusIdle(), Note = null };
+
+        if (req.status == Data.LogisticsRequestStatus.Failed || IsBlockingStatusNote(note))
+        {
+            return new RequestDisplayStatus
+            {
+                State = ShipState.Blocked,
+                Label = LogisticsStrings.StatusBlocked(),
+                Note = FormatBlockedStatusNote(note)
+            };
+        }
+
+        if (req.status == Data.LogisticsRequestStatus.Satisfied)
+        {
+            return new RequestDisplayStatus
+            {
+                State = ShipState.Idle,
+                Label = LogisticsStrings.StatusIdle(),
+                Note = note
+            };
+        }
+
+        if (HasActualInTransitDelivery(req, requester, rd, out var transitNote))
+        {
+            return new RequestDisplayStatus
+            {
+                State = ShipState.InTransit,
+                Label = LogisticsStrings.StatusInTransit(),
+                Note = string.IsNullOrWhiteSpace(note) || IsProgressOnlyStatusNote(note) ? transitNote : note
+            };
+        }
+
+        return new RequestDisplayStatus
+        {
+            State = ShipState.Pending,
+            Label = LogisticsStrings.StatusPending(),
+            Note = note
+        };
+    }
+
     private static QuotaShipStatus BuildShipStatus(Spacecraft sc, ObjectInfo home, bool forceReserved = false)
     {
         var status = new QuotaShipStatus
@@ -67,6 +118,19 @@ public static partial class LogisticsObserver
         ReturnHomeState returnState = null;
         var isTracked = sc.ID >= 0 && _returnHomeByShipId.TryGetValue(sc.ID, out returnState) && returnState != null;
         var mi = sc.GetMissionInfo();
+
+        var activeCycle = sc.CycleMissionsData;
+        if (activeCycle != null && IsLogisticsMission(activeCycle))
+        {
+            var cycleBlockedNote = FindCycleRequestBlocker(activeCycle);
+            if (!string.IsNullOrWhiteSpace(cycleBlockedNote))
+            {
+                status.State = ShipState.Blocked;
+                status.Location = activeCycle.B?.ObjectName ?? sc.CurrentlyOnThisObject?.ObjectName ?? "?";
+                status.StatusText = FormatBlockedStatusNote(cycleBlockedNote);
+                return status;
+            }
+        }
 
         if (sc.CurrentPhase == Spacecraft.EPhase.Fly || sc.CurrentPhase == Spacecraft.EPhase.Launch
             || sc.CurrentPhase == Spacecraft.EPhase.Landing)
@@ -131,6 +195,201 @@ public static partial class LogisticsObserver
         status.Location = sc.CurrentlyOnThisObject?.ObjectName ?? home?.ObjectName ?? "?";
         status.StatusText = forceReserved ? "Reserved" : "Idle";
         return status;
+    }
+
+    private static bool HasActualInTransitDelivery(Data.LogisticsRequest req, ObjectInfo requester, ResourceDefinition rd, out string note)
+    {
+        note = null;
+        if (requester == null || rd == null)
+            return false;
+
+        var player = MonoBehaviourSingleton<GameManager>.Instance?.Player;
+        var mm = MonoBehaviourSingleton<MissionInfoManager>.Instance;
+        if (player == null || mm?.ListMissionInfo == null)
+            return false;
+
+        var deliveryTargets = new List<ObjectInfo> { requester };
+        if (req?.relayStage == Data.RelayStage.WaitingForSourceOrbitStock)
+        {
+            var orbit = ResolveObject(req.relayOrbitObjectId);
+            if (orbit != null)
+                deliveryTargets.Add(orbit);
+        }
+        else if (req?.relayStage == Data.RelayStage.WaitingForFinalLeg)
+        {
+            var finalTarget = ResolveObject(req.relayFinalTargetObjectId);
+            if (finalTarget != null)
+                deliveryTargets.Add(finalTarget);
+        }
+
+        MissionInfo best = null;
+        foreach (var mi in mm.ListMissionInfo)
+        {
+            if (mi == null || mi.complete || mi.cancel || mi.company != player)
+                continue;
+            if (!deliveryTargets.Any(target => SameObjectInfo(mi.target, target)))
+                continue;
+            if (!IsLogisticsMissionInfo(mi))
+                continue;
+            if (mi.cargoAll != null && !CargoContainsResource(mi.cargoAll, rd)
+                && (mi.cargoAll.listCargoToOrbit == null || !mi.cargoAll.listCargoToOrbit.Any(c => c != null && c.resourceType == rd && c.cargoMass > 0)))
+            {
+                continue;
+            }
+
+            var sc = mi.spacecraftInfo2 as Spacecraft;
+            if (sc == null)
+                continue;
+            if (sc.CurrentPhase != Spacecraft.EPhase.Fly
+                && sc.CurrentPhase != Spacecraft.EPhase.Launch
+                && sc.CurrentPhase != Spacecraft.EPhase.Landing)
+            {
+                continue;
+            }
+
+            if (best == null || mi.DateArrive < best.DateArrive)
+                best = mi;
+        }
+
+        if (best == null)
+            return false;
+
+        var vehicleName = (best.spacecraftInfo2 as Spacecraft)?.GetSpacecraftName()
+            ?? best.spacecraftInfo2?.GetTypeSpaceCraft()?.NameRocketType;
+        if (best.DateArrive != default)
+        {
+            var arrivalText = best.DateArrive.ToString("yyyy MMM d", Language.LEManager.GetCultureInfoForDateTrajectory());
+            note = string.IsNullOrWhiteSpace(vehicleName)
+                ? LogisticsStrings.TransitArrivesOnly(arrivalText).Trim()
+                : LogisticsStrings.TransitOnVehicleArrives(vehicleName, arrivalText).Trim();
+        }
+        else if (!string.IsNullOrWhiteSpace(vehicleName))
+        {
+            note = LogisticsStrings.TransitOnVehicleOnly(vehicleName).Trim();
+        }
+
+        return true;
+    }
+
+    private static string FindCycleRequestBlocker(CycleMissionsData cmd)
+    {
+        if (cmd?.B == null || cmd.cargoAllStart?.Tab == null)
+            return null;
+
+        foreach (var requester in Data.LogisticsNetwork.GetAllObjects())
+        {
+            var data = Data.LogisticsNetwork.Get(requester);
+            if (data?.requests == null)
+                continue;
+
+            foreach (var req in data.requests)
+            {
+                if (req == null || !IsBlockingStatusNote(req.statusNote))
+                    continue;
+
+                var rd = req.ResourceDefinition;
+                if (rd == null || !cmd.cargoAllStart.Tab.Any(cycleRd => cycleRd == rd))
+                    continue;
+
+                var directTargetMatch = SameObjectInfo(requester, cmd.B);
+                var relayStageMatch = req.relayStage == Data.RelayStage.WaitingForSourceOrbitStock
+                    && req.relaySourceObjectId == (cmd.A?.id ?? -1)
+                    && req.relayOrbitObjectId == (cmd.B?.id ?? -1);
+                if (directTargetMatch || relayStageMatch)
+                    return req.statusNote;
+            }
+        }
+
+        return null;
+    }
+
+    private static string NormalizeStatusNote(string note)
+    {
+        if (string.IsNullOrWhiteSpace(note))
+            return null;
+        return note.Trim();
+    }
+
+    private static string FormatBlockedStatusNote(string note)
+    {
+        note = NormalizeStatusNote(note);
+        if (string.IsNullOrWhiteSpace(note))
+            return "Blocked";
+
+        var lower = note.ToLowerInvariant();
+        if (lower.Contains("insufficient fuel at source") || lower.Contains("cannot load fuel"))
+            return "Not enough fuel at source";
+        if (lower.Contains("wrongremovefuel"))
+            return "Not enough fuel to load";
+        if (lower.Contains("wrongthrust") || lower.Contains("insufficient thrust"))
+            return "Insufficient thrust for route";
+        if (lower.Contains("wronglv") || lower.Contains("launch vehicle required"))
+            return "Launch vehicle required";
+        if (lower.Contains("wrongmaxcapacityfuelok") || lower.Contains("too much fuel"))
+            return "Route needs too much fuel";
+
+        if (note.Length <= 96)
+            return note;
+        return note.Substring(0, 93) + "...";
+    }
+
+    private static bool IsProgressOnlyStatusNote(string note)
+    {
+        note = NormalizeStatusNote(note);
+        return !string.IsNullOrEmpty(note)
+            && (note.StartsWith("Staging to ", StringComparison.Ordinal)
+                || note.StartsWith("Staged at ", StringComparison.Ordinal)
+                || note.StartsWith("Shipping from ", StringComparison.Ordinal)
+                || note.StartsWith("Planning mission", StringComparison.Ordinal)
+                || note.StartsWith("Waiting for prior shipment", StringComparison.Ordinal)
+                || note.StartsWith("Waiting for spacecraft", StringComparison.Ordinal));
+    }
+
+    private static bool IsBlockingStatusNote(string note)
+    {
+        note = NormalizeStatusNote(note);
+        if (string.IsNullOrEmpty(note))
+            return false;
+
+        if (IsTransientPlanningStatus(note) || IsMinimumShipmentStatus(note))
+            return false;
+
+        var lower = note.ToLowerInvariant();
+        return lower.Contains("insufficient")
+            || lower.Contains("cannot ")
+            || lower.Contains("blocked")
+            || lower.Contains("failed")
+            || lower.Contains("wrong")
+            || lower.Contains("no fuel")
+            || lower.Contains("not enough")
+            || lower.Contains("too much fuel")
+            || lower.Contains("requires too much")
+            || lower.Contains("no provider")
+            || lower.Contains("no surface launch path")
+            || lower.Contains("no source orbit")
+            || lower.Contains("no cargo capacity")
+            || lower.Contains("launch vehicle required")
+            || lower.Contains("no launch vehicle")
+            || lower.Contains("no ready launch vehicle")
+            || lower.Contains("no matching launch vehicle")
+            || lower.Contains("all launch vehicle quota in use")
+            || lower.Contains("no idle spacecraft")
+            || lower.Contains("no spacecraft available")
+            || lower.Contains("no spacecraft at")
+            || lower.Contains("no orbital payload")
+            || lower.Contains("pending plan stale")
+            || lower.StartsWith("retrying in ", StringComparison.Ordinal);
+    }
+
+    private static void SetProgressStatusNote(Data.LogisticsRequest req, string note)
+    {
+        if (req == null)
+            return;
+
+        if (IsBlockingStatusNote(req.statusNote) && !IsBlockingStatusNote(note))
+            return;
+
+        req.statusNote = note;
     }
 
     public static List<QuotaShipStatus> GetShipStatusesForQuota(ObjectInfo quotaHome, Data.ShipQuotaEntry quota)

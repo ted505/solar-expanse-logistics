@@ -22,8 +22,10 @@ internal static class LogisticsStrings
     private static string Name(ResourceDefinition rd) => rd != null ? LEManager.Get(rd.ID, rd.ID) : "?";
 
     // --- status words shown in the UI ---
+    public static string StatusIdle() => Loc("status.idle", "idle");
     public static string StatusPending() => Loc("status.pending", "pending");
     public static string StatusInTransit() => Loc("status.in_transit", "in transit");
+    public static string StatusBlocked() => Loc("status.blocked", "blocked");
     public static string StatusSatisfied() => Loc("status.satisfied", "satisfied");
     public static string StatusFailed() => Loc("status.failed", "failed");
 

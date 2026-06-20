@@ -305,10 +305,11 @@ public static partial class LogisticsObserver
                     }
                 }
 
+                var preservedBlockingStatusNote = IsBlockingStatusNote(req.statusNote) ? req.statusNote : null;
                 if (req.status == Data.LogisticsRequestStatus.Pending)
-                    req.statusNote = (rd != null && networkResources.Contains(rd)) ? null : LogisticsStrings.NoProviderInNetwork();
+                    req.statusNote = preservedBlockingStatusNote ?? ((rd != null && networkResources.Contains(rd)) ? null : LogisticsStrings.NoProviderInNetwork());
                 else
-                    req.statusNote = null;
+                    req.statusNote = preservedBlockingStatusNote;
                 if (rd == null) continue;
 
                 if (req.relayFinalTargetObjectId <= 0)
