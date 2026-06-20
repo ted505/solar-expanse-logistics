@@ -416,7 +416,7 @@ public class LogisticsUI : MonoBehaviour
                     var linkedOiDisp = Data.LogisticsNetwork.ResolveObjectById(req.directLinkedObjectId);
                     var linkedProv = Data.LogisticsNetwork.FindLinkedDirectProvider(req.directLinkedObjectId, rd, _currentObjectInfo?.id ?? -1);
                     var reserveText = linkedProv != null ? $" reserve: {FormatCompactAmount(linkedProv.minimumKeep)}" : "";
-                    netText = $" <color=#88DDBB>[<-> {BodyLabel(linkedOiDisp)}{reserveText}]</color>";
+                    netText = $" <color=#88DDBB>[\u2194 {BodyLabel(linkedOiDisp)}{reserveText}]</color>";
                 }
                 else
                 {
@@ -439,7 +439,7 @@ public class LogisticsUI : MonoBehaviour
                 }
                 if (hasInboundStatuses)
                 {
-                    AddSmallButton(row.transform, isGetExpanded ? "v" : ">", _runtimeStyle.SmallButtonColor, () =>
+                    AddSmallButton(row.transform, isGetExpanded ? "\u25BE" : "\u25B8", _runtimeStyle.SmallButtonColor, () =>
                     {
                         if (_expandedGetRequestKeys.Contains(getExpandKey))
                             _expandedGetRequestKeys.Remove(getExpandKey);
@@ -616,7 +616,7 @@ public class LogisticsUI : MonoBehaviour
         return new LogisticsObserver.QuotaShipStatus
         {
             Name = VehicleDisplayName(ship) ?? MissionVehicleName(mi) ?? "Spacecraft",
-            Location = $"{mi?.start?.ObjectName ?? "?"} -> {mi?.target?.ObjectName ?? "?"}",
+            Location = $"{mi?.start?.ObjectName ?? "?"} \u2192 {mi?.target?.ObjectName ?? "?"}",
             StatusText = planned ? "Planned" : "In transit",
             ETA = mi != null && mi.DateArrive != default ? (DateTime?)mi.DateArrive : null,
             State = planned ? LogisticsObserver.ShipState.Pending : LogisticsObserver.ShipState.InTransit
@@ -718,7 +718,7 @@ public class LogisticsUI : MonoBehaviour
                     var linkedOiDisp = Data.LogisticsNetwork.ResolveObjectById(prov.directLinkedObjectId);
                     var linkedReq = Data.LogisticsNetwork.FindLinkedDirectRequest(prov.directLinkedObjectId, rd, _currentObjectInfo?.id ?? -1);
                     var targetText = linkedReq != null ? $" target: {FormatCompactAmount(linkedReq.requestedAmount)}" : "";
-                    netText = $" <color=#88DDBB>[<-> {BodyLabel(linkedOiDisp)}{targetText}]</color>";
+                    netText = $" <color=#88DDBB>[\u2194 {BodyLabel(linkedOiDisp)}{targetText}]</color>";
                 }
                 else
                 {
@@ -741,7 +741,7 @@ public class LogisticsUI : MonoBehaviour
                 }
                 if (hasSendShips)
                 {
-                    AddSmallButton(row.transform, isSendExpanded ? "v" : ">", _runtimeStyle.SmallButtonColor, () =>
+                    AddSmallButton(row.transform, isSendExpanded ? "\u25BE" : "\u25B8", _runtimeStyle.SmallButtonColor, () =>
                     {
                         if (_expandedSendProviderKeys.Contains(sendExpandKey))
                             _expandedSendProviderKeys.Remove(sendExpandKey);
@@ -862,7 +862,7 @@ public class LogisticsUI : MonoBehaviour
                 nameLe.preferredWidth = 0f;
 
                 var capturedExpandKey = expandKey;
-                AddSmallButton(row.transform, isExpanded ? "v" : ">", _runtimeStyle.SmallButtonColor, () =>
+                AddSmallButton(row.transform, isExpanded ? "\u25BE" : "\u25B8", _runtimeStyle.SmallButtonColor, () =>
                 {
                     if (_expandedQuotaKeys.Contains(capturedExpandKey))
                         _expandedQuotaKeys.Remove(capturedExpandKey);
@@ -987,7 +987,10 @@ public class LogisticsUI : MonoBehaviour
                     LogisticsObserver.ShipState.Blocked => ShipDotBlocked,
                     _ => SubtleTextColor
                 };
-                AddStatusDot(shipRow.transform, dotColor);
+                var dotTmp = MakeTMP(shipRow.transform, "\u25CF", 10, dotColor);
+                var dotLe = dotTmp.gameObject.AddComponent<LayoutElement>();
+                dotLe.preferredWidth = 14f;
+                dotLe.flexibleWidth = 0f;
 
                 var shipNameTmp = MakeTMP(shipRow.transform, ship.Name, 11, _runtimeStyle.RowTextColor);
                 var shipNameLe = shipNameTmp.gameObject.AddComponent<LayoutElement>();
@@ -1027,7 +1030,7 @@ public class LogisticsUI : MonoBehaviour
         var quotaEntry = Data.LogisticsNetwork.GetQuotaEntry(quotaObject, quotaTypeName, true);
         var minimumShipment = quotaEntry?.minimumShipmentAmount ?? 0;
 
-        AddBigButton(section.ContentArea, "< Back", _runtimeStyle.BackButtonColor, () =>
+        AddBigButton(section.ContentArea, "\u2190 Back", _runtimeStyle.BackButtonColor, () =>
         {
             BuildSCSection();
             RebuildSectionLayout(section);
@@ -1070,9 +1073,9 @@ public class LogisticsUI : MonoBehaviour
         AddSmallButton(plusRow.transform, "+100K", _runtimeStyle.SmallButtonPositiveColor, () => AddMinimum(100000), tooltip: "Increase minimum useful load by 100K");
 
         var minusRow = MakeHLRow(section.ContentArea, 28f, 4);
-        AddSmallButton(minusRow.transform, "-100", _runtimeStyle.SmallButtonColor, () => AddMinimum(-100), tooltip: "Decrease minimum useful load by 100");
-        AddSmallButton(minusRow.transform, "-1K", _runtimeStyle.SmallButtonColor, () => AddMinimum(-1000), tooltip: "Decrease minimum useful load by 1K");
-        AddSmallButton(minusRow.transform, "-10K", _runtimeStyle.SmallButtonColor, () => AddMinimum(-10000), tooltip: "Decrease minimum useful load by 10K");
+        AddSmallButton(minusRow.transform, "\u2212100", _runtimeStyle.SmallButtonColor, () => AddMinimum(-100), tooltip: "Decrease minimum useful load by 100");
+        AddSmallButton(minusRow.transform, "\u22121K", _runtimeStyle.SmallButtonColor, () => AddMinimum(-1000), tooltip: "Decrease minimum useful load by 1K");
+        AddSmallButton(minusRow.transform, "\u221210K", _runtimeStyle.SmallButtonColor, () => AddMinimum(-10000), tooltip: "Decrease minimum useful load by 10K");
         AddSmallButton(minusRow.transform, "Off", _runtimeStyle.SmallButtonColor, () =>
         {
             minimumShipment = 0;
@@ -1090,27 +1093,6 @@ public class LogisticsUI : MonoBehaviour
         RebuildSectionLayout(section);
     }
 
-    private static void AddStatusDot(Transform parent, Color color)
-    {
-        var slotGo = new GameObject("StatusDotSlot", typeof(RectTransform), typeof(LayoutElement));
-        slotGo.transform.SetParent(parent, false);
-        var layout = slotGo.GetComponent<LayoutElement>();
-        layout.preferredWidth = 14f;
-        layout.preferredHeight = 22f;
-        layout.flexibleWidth = 0f;
-
-        var dotGo = new GameObject("StatusDot", typeof(RectTransform), typeof(Image));
-        dotGo.transform.SetParent(slotGo.transform, false);
-        var rect = dotGo.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(0.5f, 0.5f);
-        rect.anchorMax = new Vector2(0.5f, 0.5f);
-        rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.sizeDelta = new Vector2(7f, 7f);
-        var image = dotGo.GetComponent<Image>();
-        image.color = color;
-        image.raycastTarget = false;
-    }
-
     private void AddShipStatusRow(Transform parent, LogisticsObserver.QuotaShipStatus ship, Color background, float nameWidth, int maxStatusChars, bool includeLocation = true)
     {
         var shipRow = MakeHLRow(parent, 22f, 6);
@@ -1124,7 +1106,10 @@ public class LogisticsUI : MonoBehaviour
             LogisticsObserver.ShipState.Blocked => ShipDotBlocked,
             _ => SubtleTextColor
         };
-        AddStatusDot(shipRow.transform, dotColor);
+        var dotTmp = MakeTMP(shipRow.transform, "\u25CF", 10, dotColor);
+        var dotLe = dotTmp.gameObject.AddComponent<LayoutElement>();
+        dotLe.preferredWidth = 14f;
+        dotLe.flexibleWidth = 0f;
 
         var shipNameTmp = MakeTMP(shipRow.transform, TruncateText(ship.Name, 16), 11, _runtimeStyle.RowTextColor);
         var shipNameLe = shipNameTmp.gameObject.AddComponent<LayoutElement>();
@@ -1238,7 +1223,7 @@ public class LogisticsUI : MonoBehaviour
     {
         section.ClearContent();
 
-        AddBigButton(section.ContentArea, "< Back", _runtimeStyle.BackButtonColor, () =>
+        AddBigButton(section.ContentArea, "\u2190 Back", _runtimeStyle.BackButtonColor, () =>
         {
             if (isSpacecraft) BuildSCSection(); else BuildLVSection();
             RebuildSectionLayout(section);
@@ -1353,7 +1338,7 @@ public class LogisticsUI : MonoBehaviour
         ObjectInfo currentBody, System.Action<ObjectInfo> onSelected)
     {
         section.ClearContent();
-        AddBigButton(section.ContentArea, "< Back", _runtimeStyle.BackButtonColor, () =>
+        AddBigButton(section.ContentArea, "\u2190 Back", _runtimeStyle.BackButtonColor, () =>
         {
             if (isGet) BuildGetSection(); else BuildSendSection();
             RebuildSectionLayout(section);
@@ -1433,7 +1418,7 @@ public class LogisticsUI : MonoBehaviour
     {
         section.ClearContent();
 
-        AddBigButton(section.ContentArea, "< Back", _runtimeStyle.BackButtonColor, () =>
+        AddBigButton(section.ContentArea, "\u2190 Back", _runtimeStyle.BackButtonColor, () =>
         {
             if (isGet) BuildGetSection(); else BuildSendSection();
             RebuildSectionLayout(section);
@@ -1599,7 +1584,7 @@ public class LogisticsUI : MonoBehaviour
         }
         section.ClearContent();
 
-        AddBigButton(section.ContentArea, isEditing ? "< Back to rules" : "< Back to resources", _runtimeStyle.BackButtonColor, () =>
+        AddBigButton(section.ContentArea, isEditing ? "\u2190 Back to rules" : "\u2190 Back to resources", _runtimeStyle.BackButtonColor, () =>
         {
             if (isEditing)
             {
@@ -1884,12 +1869,12 @@ public class LogisticsUI : MonoBehaviour
         AddSmallButton(plusRow.transform, "+1M", _runtimeStyle.SmallButtonPositiveColor, () => AddAmount(1000000), tooltip: "Increase amount by 1M");
 
         var minusRow = MakeHLRow(section.ContentArea, 28f, 4);
-        AddSmallButton(minusRow.transform, "-10", _runtimeStyle.SmallButtonColor, () => AddAmount(-10), tooltip: "Decrease amount by 10");
-        AddSmallButton(minusRow.transform, "-100", _runtimeStyle.SmallButtonColor, () => AddAmount(-100), tooltip: "Decrease amount by 100");
-        AddSmallButton(minusRow.transform, "-1K", _runtimeStyle.SmallButtonColor, () => AddAmount(-1000), tooltip: "Decrease amount by 1K");
-        AddSmallButton(minusRow.transform, "-10K", _runtimeStyle.SmallButtonColor, () => AddAmount(-10000), tooltip: "Decrease amount by 10K");
-        AddSmallButton(minusRow.transform, "-100K", _runtimeStyle.SmallButtonColor, () => AddAmount(-100000), tooltip: "Decrease amount by 100K");
-        AddSmallButton(minusRow.transform, "-1M", _runtimeStyle.SmallButtonColor, () => AddAmount(-1000000), tooltip: "Decrease amount by 1M");
+        AddSmallButton(minusRow.transform, "\u221210", _runtimeStyle.SmallButtonColor, () => AddAmount(-10), tooltip: "Decrease amount by 10");
+        AddSmallButton(minusRow.transform, "\u2212100", _runtimeStyle.SmallButtonColor, () => AddAmount(-100), tooltip: "Decrease amount by 100");
+        AddSmallButton(minusRow.transform, "\u22121K", _runtimeStyle.SmallButtonColor, () => AddAmount(-1000), tooltip: "Decrease amount by 1K");
+        AddSmallButton(minusRow.transform, "\u221210K", _runtimeStyle.SmallButtonColor, () => AddAmount(-10000), tooltip: "Decrease amount by 10K");
+        AddSmallButton(minusRow.transform, "\u2212100K", _runtimeStyle.SmallButtonColor, () => AddAmount(-100000), tooltip: "Decrease amount by 100K");
+        AddSmallButton(minusRow.transform, "\u22121M", _runtimeStyle.SmallButtonColor, () => AddAmount(-1000000), tooltip: "Decrease amount by 1M");
 
         if (isGet)
         {
