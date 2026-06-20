@@ -416,7 +416,7 @@ public class LogisticsUI : MonoBehaviour
                     var linkedOiDisp = Data.LogisticsNetwork.ResolveObjectById(req.directLinkedObjectId);
                     var linkedProv = Data.LogisticsNetwork.FindLinkedDirectProvider(req.directLinkedObjectId, rd, _currentObjectInfo?.id ?? -1);
                     var reserveText = linkedProv != null ? $" reserve: {FormatCompactAmount(linkedProv.minimumKeep)}" : "";
-                    netText = $" <color=#88DDBB>[? {BodyLabel(linkedOiDisp)}{reserveText}]</color>";
+                    netText = $" <color=#88DDBB>[\u2194 {BodyLabel(linkedOiDisp)}{reserveText}]</color>";
                 }
                 else
                 {
@@ -439,7 +439,7 @@ public class LogisticsUI : MonoBehaviour
                 }
                 if (hasInboundStatuses)
                 {
-                    AddSmallButton(row.transform, isGetExpanded ? "?" : "?", _runtimeStyle.SmallButtonColor, () =>
+                    AddSmallButton(row.transform, isGetExpanded ? "\u25BE" : "\u25B8", _runtimeStyle.SmallButtonColor, () =>
                     {
                         if (_expandedGetRequestKeys.Contains(getExpandKey))
                             _expandedGetRequestKeys.Remove(getExpandKey);
@@ -616,7 +616,7 @@ public class LogisticsUI : MonoBehaviour
         return new LogisticsObserver.QuotaShipStatus
         {
             Name = VehicleDisplayName(ship) ?? MissionVehicleName(mi) ?? "Spacecraft",
-            Location = $"{mi?.start?.ObjectName ?? "?"} -> {mi?.target?.ObjectName ?? "?"}",
+            Location = $"{mi?.start?.ObjectName ?? "?"} \u2192 {mi?.target?.ObjectName ?? "?"}",
             StatusText = planned ? "Planned" : "In transit",
             ETA = mi != null && mi.DateArrive != default ? (DateTime?)mi.DateArrive : null,
             State = planned ? LogisticsObserver.ShipState.Pending : LogisticsObserver.ShipState.InTransit
@@ -718,7 +718,7 @@ public class LogisticsUI : MonoBehaviour
                     var linkedOiDisp = Data.LogisticsNetwork.ResolveObjectById(prov.directLinkedObjectId);
                     var linkedReq = Data.LogisticsNetwork.FindLinkedDirectRequest(prov.directLinkedObjectId, rd, _currentObjectInfo?.id ?? -1);
                     var targetText = linkedReq != null ? $" target: {FormatCompactAmount(linkedReq.requestedAmount)}" : "";
-                    netText = $" <color=#88DDBB>[? {BodyLabel(linkedOiDisp)}{targetText}]</color>";
+                    netText = $" <color=#88DDBB>[\u2194 {BodyLabel(linkedOiDisp)}{targetText}]</color>";
                 }
                 else
                 {
@@ -741,7 +741,7 @@ public class LogisticsUI : MonoBehaviour
                 }
                 if (hasSendShips)
                 {
-                    AddSmallButton(row.transform, isSendExpanded ? "?" : "?", _runtimeStyle.SmallButtonColor, () =>
+                    AddSmallButton(row.transform, isSendExpanded ? "\u25BE" : "\u25B8", _runtimeStyle.SmallButtonColor, () =>
                     {
                         if (_expandedSendProviderKeys.Contains(sendExpandKey))
                             _expandedSendProviderKeys.Remove(sendExpandKey);
@@ -862,7 +862,7 @@ public class LogisticsUI : MonoBehaviour
                 nameLe.preferredWidth = 0f;
 
                 var capturedExpandKey = expandKey;
-                AddSmallButton(row.transform, isExpanded ? "?" : "?", _runtimeStyle.SmallButtonColor, () =>
+                AddSmallButton(row.transform, isExpanded ? "\u25BE" : "\u25B8", _runtimeStyle.SmallButtonColor, () =>
                 {
                     if (_expandedQuotaKeys.Contains(capturedExpandKey))
                         _expandedQuotaKeys.Remove(capturedExpandKey);
@@ -987,7 +987,7 @@ public class LogisticsUI : MonoBehaviour
                     LogisticsObserver.ShipState.Blocked => ShipDotBlocked,
                     _ => SubtleTextColor
                 };
-                var dotTmp = MakeTMP(shipRow.transform, "?", 10, dotColor);
+                var dotTmp = MakeTMP(shipRow.transform, "\u25CF", 10, dotColor);
                 var dotLe = dotTmp.gameObject.AddComponent<LayoutElement>();
                 dotLe.preferredWidth = 14f;
                 dotLe.flexibleWidth = 0f;
@@ -1106,7 +1106,7 @@ public class LogisticsUI : MonoBehaviour
             LogisticsObserver.ShipState.Blocked => ShipDotBlocked,
             _ => SubtleTextColor
         };
-        var dotTmp = MakeTMP(shipRow.transform, "?", 10, dotColor);
+        var dotTmp = MakeTMP(shipRow.transform, "\u25CF", 10, dotColor);
         var dotLe = dotTmp.gameObject.AddComponent<LayoutElement>();
         dotLe.preferredWidth = 14f;
         dotLe.flexibleWidth = 0f;
