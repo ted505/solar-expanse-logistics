@@ -240,7 +240,7 @@ public class LogisticsSection
         if (_arrowImage != null)
             _arrowImage.sprite = Expanded ? _spriteCollapse : _spriteExpand;
         else if (_arrowText != null)
-            _arrowText.text = Expanded ? "\u25B2" : "\u25BC";
+            _arrowText.text = Expanded ? "^" : "v";
     }
 
     public TextMeshProUGUI AddTextRow(string text, TMP_FontAsset font, float fontSize = 13f, Color? color = null)

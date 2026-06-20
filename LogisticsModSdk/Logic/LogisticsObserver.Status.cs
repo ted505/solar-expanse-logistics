@@ -67,6 +67,16 @@ public static partial class LogisticsObserver
         if (req == null)
             return new RequestDisplayStatus { State = ShipState.Idle, Label = LogisticsStrings.StatusIdle(), Note = null };
 
+        if (TryGetDeliveryMissionDisplay(req, requester, rd, out var missionState, out var missionNote))
+        {
+            return new RequestDisplayStatus
+            {
+                State = missionState,
+                Label = missionState == ShipState.InTransit ? LogisticsStrings.StatusInTransit() : LogisticsStrings.StatusPending(),
+                Note = missionNote
+            };
+        }
+
         if (req.status == Data.LogisticsRequestStatus.Failed || IsBlockingStatusNote(note))
         {
             return new RequestDisplayStatus
@@ -84,16 +94,6 @@ public static partial class LogisticsObserver
                 State = ShipState.Idle,
                 Label = LogisticsStrings.StatusIdle(),
                 Note = note
-            };
-        }
-
-        if (HasActualInTransitDelivery(req, requester, rd, out var transitNote))
-        {
-            return new RequestDisplayStatus
-            {
-                State = ShipState.InTransit,
-                Label = LogisticsStrings.StatusInTransit(),
-                Note = string.IsNullOrWhiteSpace(note) || IsProgressOnlyStatusNote(note) ? transitNote : note
             };
         }
 
@@ -119,19 +119,6 @@ public static partial class LogisticsObserver
         var isTracked = sc.ID >= 0 && _returnHomeByShipId.TryGetValue(sc.ID, out returnState) && returnState != null;
         var mi = sc.GetMissionInfo();
 
-        var activeCycle = sc.CycleMissionsData;
-        if (activeCycle != null && IsLogisticsMission(activeCycle))
-        {
-            var cycleBlockedNote = FindCycleRequestBlocker(activeCycle);
-            if (!string.IsNullOrWhiteSpace(cycleBlockedNote))
-            {
-                status.State = ShipState.Blocked;
-                status.Location = activeCycle.B?.ObjectName ?? sc.CurrentlyOnThisObject?.ObjectName ?? "?";
-                status.StatusText = FormatBlockedStatusNote(cycleBlockedNote);
-                return status;
-            }
-        }
-
         if (sc.CurrentPhase == Spacecraft.EPhase.Fly || sc.CurrentPhase == Spacecraft.EPhase.Launch
             || sc.CurrentPhase == Spacecraft.EPhase.Landing)
         {
@@ -153,6 +140,19 @@ public static partial class LogisticsObserver
             if (mi != null && mi.DateArrive != default)
                 status.ETA = mi.DateArrive;
             return status;
+        }
+
+        var activeCycle = sc.CycleMissionsData;
+        if (activeCycle != null && IsLogisticsMission(activeCycle))
+        {
+            var cycleBlockedNote = FindCycleRequestBlocker(activeCycle);
+            if (!string.IsNullOrWhiteSpace(cycleBlockedNote))
+            {
+                status.State = ShipState.Blocked;
+                status.Location = activeCycle.B?.ObjectName ?? sc.CurrentlyOnThisObject?.ObjectName ?? "?";
+                status.StatusText = FormatBlockedStatusNote(cycleBlockedNote);
+                return status;
+            }
         }
 
         if (isTracked && returnState != null)
@@ -197,8 +197,9 @@ public static partial class LogisticsObserver
         return status;
     }
 
-    private static bool HasActualInTransitDelivery(Data.LogisticsRequest req, ObjectInfo requester, ResourceDefinition rd, out string note)
+    private static bool TryGetDeliveryMissionDisplay(Data.LogisticsRequest req, ObjectInfo requester, ResourceDefinition rd, out ShipState state, out string note)
     {
+        state = ShipState.Pending;
         note = null;
         if (requester == null || rd == null)
             return false;
@@ -223,6 +224,7 @@ public static partial class LogisticsObserver
         }
 
         MissionInfo best = null;
+        ShipState bestState = ShipState.Pending;
         foreach (var mi in mm.ListMissionInfo)
         {
             if (mi == null || mi.complete || mi.cancel || mi.company != player)
@@ -240,23 +242,45 @@ public static partial class LogisticsObserver
             var sc = mi.spacecraftInfo2 as Spacecraft;
             if (sc == null)
                 continue;
-            if (sc.CurrentPhase != Spacecraft.EPhase.Fly
-                && sc.CurrentPhase != Spacecraft.EPhase.Launch
-                && sc.CurrentPhase != Spacecraft.EPhase.Landing)
+            var isMoving = sc.CurrentPhase == Spacecraft.EPhase.Fly
+                || sc.CurrentPhase == Spacecraft.EPhase.Launch
+                || sc.CurrentPhase == Spacecraft.EPhase.Landing;
+            var now = MonoBehaviourSingleton<TimeController>.Instance?.CurrentTime ?? DateTime.MinValue;
+            var isPlanned = sc.CurrentPhase == Spacecraft.EPhase.PlanedMission
+                || (mi.DateLaunch != default && now != DateTime.MinValue && mi.DateLaunch > now);
+            if (!isMoving && !isPlanned)
             {
                 continue;
             }
 
             if (best == null || mi.DateArrive < best.DateArrive)
+            {
                 best = mi;
+                bestState = isMoving ? ShipState.InTransit : ShipState.Pending;
+            }
         }
 
         if (best == null)
             return false;
 
+        state = bestState;
         var vehicleName = (best.spacecraftInfo2 as Spacecraft)?.GetSpacecraftName()
             ?? best.spacecraftInfo2?.GetTypeSpaceCraft()?.NameRocketType;
-        if (best.DateArrive != default)
+        if (state == ShipState.Pending)
+        {
+            if (best.DateLaunch != default)
+            {
+                var launchText = best.DateLaunch.ToString("yyyy MMM d", Language.LEManager.GetCultureInfoForDateTrajectory());
+                note = string.IsNullOrWhiteSpace(vehicleName)
+                    ? $"launches {launchText}"
+                    : $"on {vehicleName}, launches {launchText}";
+            }
+            else
+            {
+                note = string.IsNullOrWhiteSpace(vehicleName) ? "planned" : $"on {vehicleName}, planned";
+            }
+        }
+        else if (best.DateArrive != default)
         {
             var arrivalText = best.DateArrive.ToString("yyyy MMM d", Language.LEManager.GetCultureInfoForDateTrajectory());
             note = string.IsNullOrWhiteSpace(vehicleName)
