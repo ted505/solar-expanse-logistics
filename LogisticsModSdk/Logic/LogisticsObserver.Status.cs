@@ -77,6 +77,16 @@ public static partial class LogisticsObserver
             };
         }
 
+        if (TryGetActiveDeliveryShipDisplay(req, requester, rd, out var shipState, out var shipNote))
+        {
+            return new RequestDisplayStatus
+            {
+                State = shipState,
+                Label = shipState == ShipState.InTransit ? LogisticsStrings.StatusInTransit() : LogisticsStrings.StatusPending(),
+                Note = shipNote
+            };
+        }
+
         if (req.status == Data.LogisticsRequestStatus.Failed || IsBlockingStatusNote(note))
         {
             return new RequestDisplayStatus
@@ -195,6 +205,63 @@ public static partial class LogisticsObserver
         status.Location = sc.CurrentlyOnThisObject?.ObjectName ?? home?.ObjectName ?? "?";
         status.StatusText = forceReserved ? "Reserved" : "Idle";
         return status;
+    }
+
+    private static bool TryGetActiveDeliveryShipDisplay(Data.LogisticsRequest req, ObjectInfo requester, ResourceDefinition rd, out ShipState state, out string note)
+    {
+        state = ShipState.Pending;
+        note = null;
+        if (req == null || requester == null || rd == null)
+            return false;
+
+        var statuses = GetAllShipsForGetRequest(requester, rd)
+            .Where(s => IsActiveDeliveryProgressStatus(s))
+            .OrderByDescending(s => s.State == ShipState.InTransit)
+            .ThenBy(s => s.ETA ?? DateTime.MaxValue)
+            .ThenBy(s => s.Name, StringComparer.Ordinal)
+            .ToList();
+        if (statuses.Count == 0)
+            return false;
+
+        var best = statuses[0];
+        state = best.State == ShipState.InTransit ? ShipState.InTransit : ShipState.Pending;
+        note = BuildRequestShipProgressNote(best);
+        return true;
+    }
+
+    private static bool IsActiveDeliveryProgressStatus(QuotaShipStatus status)
+    {
+        if (status.State != ShipState.InTransit && status.State != ShipState.Pending)
+            return false;
+
+        var text = NormalizeStatusNote(status.StatusText);
+        if (string.IsNullOrEmpty(text))
+            return false;
+
+        return text.Equals("Planned", StringComparison.Ordinal)
+            || text.Equals("Reserved planned", StringComparison.Ordinal)
+            || text.Equals("In transit", StringComparison.Ordinal)
+            || text.Equals("Reserved transit", StringComparison.Ordinal)
+            || text.Equals("Landing", StringComparison.Ordinal)
+            || text.Equals("Reserved landing", StringComparison.Ordinal);
+    }
+
+    private static string BuildRequestShipProgressNote(QuotaShipStatus status)
+    {
+        var name = string.IsNullOrWhiteSpace(status.Name) ? null : status.Name;
+        var text = NormalizeStatusNote(status.StatusText);
+        var statusText = string.IsNullOrWhiteSpace(text) ? "planned" : text.ToLowerInvariant();
+        if (status.ETA.HasValue)
+        {
+            var dateText = status.ETA.Value.ToString("yyyy MMM d", Language.LEManager.GetCultureInfoForDateTrajectory());
+            return string.IsNullOrWhiteSpace(name)
+                ? $"{statusText}, {dateText}"
+                : $"on {name}, {statusText}, {dateText}";
+        }
+
+        return string.IsNullOrWhiteSpace(name)
+            ? statusText
+            : $"on {name}, {statusText}";
     }
 
     private static bool TryGetDeliveryMissionDisplay(Data.LogisticsRequest req, ObjectInfo requester, ResourceDefinition rd, out ShipState state, out string note)
