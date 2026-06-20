@@ -239,7 +239,7 @@ public static partial class LogisticsObserver
                 continue;
             }
 
-            var sc = mi.spacecraftInfo2 as Spacecraft;
+            var sc = GetMissionSpacecraft(mi).FirstOrDefault();
             if (sc == null)
                 continue;
             var isMoving = sc.CurrentPhase == Spacecraft.EPhase.Fly
@@ -264,7 +264,7 @@ public static partial class LogisticsObserver
             return false;
 
         state = bestState;
-        var vehicleName = (best.spacecraftInfo2 as Spacecraft)?.GetSpacecraftName()
+        var vehicleName = GetMissionSpacecraft(best).FirstOrDefault()?.GetSpacecraftName()
             ?? best.spacecraftInfo2?.GetTypeSpaceCraft()?.NameRocketType;
         if (state == ShipState.Pending)
         {
@@ -401,6 +401,7 @@ public static partial class LogisticsObserver
             || lower.Contains("no idle spacecraft")
             || lower.Contains("no spacecraft available")
             || lower.Contains("no spacecraft at")
+            || lower.Contains("no spacecraft present")
             || lower.Contains("no orbital payload")
             || lower.Contains("pending plan stale")
             || lower.StartsWith("retrying in ", StringComparison.Ordinal);
@@ -411,8 +412,12 @@ public static partial class LogisticsObserver
         if (req == null)
             return;
 
-        if (IsBlockingStatusNote(req.statusNote) && !IsBlockingStatusNote(note))
+        if (IsBlockingStatusNote(req.statusNote)
+            && !IsBlockingStatusNote(note)
+            && req.status != Data.LogisticsRequestStatus.InProgress)
+        {
             return;
+        }
 
         req.statusNote = note;
     }
@@ -486,8 +491,11 @@ public static partial class LogisticsObserver
                     && (mi.cargoAll.listCargoToOrbit == null || !mi.cargoAll.listCargoToOrbit.Any(c => c != null && c.resourceType == rd && c.cargoMass > 0)))
                     continue;
 
-                if (mi.spacecraftInfo2 is Spacecraft sc && sc.ID >= 0 && seenIds.Add(sc.ID))
-                    result.Add(BuildShipStatus(sc, target));
+                foreach (var sc in GetMissionSpacecraft(mi))
+                {
+                    if (sc.ID >= 0 && seenIds.Add(sc.ID))
+                        result.Add(BuildShipStatus(sc, target));
+                }
             }
         }
 
@@ -609,8 +617,11 @@ public static partial class LogisticsObserver
                     if (mi.cargoAll != null && !CargoContainsResource(mi.cargoAll, rd))
                         continue;
 
-                    if (mi.spacecraftInfo2 is Spacecraft sc && sc.ID >= 0 && seenIds.Add(sc.ID))
-                        result.Add(BuildShipStatus(sc, source));
+                    foreach (var sc in GetMissionSpacecraft(mi))
+                    {
+                        if (sc.ID >= 0 && seenIds.Add(sc.ID))
+                            result.Add(BuildShipStatus(sc, source));
+                    }
                 }
             }
 
@@ -669,6 +680,31 @@ public static partial class LogisticsObserver
     {
         return mi?.missionName != null
             && mi.missionName.StartsWith("[LOGI", StringComparison.Ordinal);
+    }
+
+    private static IEnumerable<Spacecraft> GetMissionSpacecraft(MissionInfo mi)
+    {
+        if (mi == null)
+            yield break;
+
+        var seen = new HashSet<int>();
+        if (mi.spacecraftInfo2 is Spacecraft primary)
+        {
+            if (primary.ID < 0 || seen.Add(primary.ID))
+                yield return primary;
+        }
+
+        if (mi.ListSpacecraftInfo2 == null)
+            yield break;
+
+        foreach (var sci in mi.ListSpacecraftInfo2)
+        {
+            if (sci is not Spacecraft sc)
+                continue;
+            if (sc.ID >= 0 && !seen.Add(sc.ID))
+                continue;
+            yield return sc;
+        }
     }
 
     public static void RegisterLogisticsMissionInfo(MissionInfo mi, bool updateLedger = true)
@@ -737,6 +773,7 @@ public static partial class LogisticsObserver
         var data = Data.LogisticsNetwork.Get(target);
         if (data?.requests == null) return;
 
+        var player = MonoBehaviourSingleton<GameManager>.Instance?.Player;
         var resources = cargoInfo?.Tab;
         foreach (var req in data.requests)
         {
@@ -751,6 +788,14 @@ public static partial class LogisticsObserver
                     continue;
             }
 
+            if (player != null
+                && req.ResourceDefinition != null
+                && HasActiveLogisticsMissionDelivering(target, req.ResourceDefinition, player))
+            {
+                LogVerbose($"CYCLE plan-failure-note ignored-active-mission: target={target.ObjectName} rd={req.ResourceDefinition?.ID} note={tooltip}");
+                continue;
+            }
+
             req.statusNote = tooltip;
             LogVerbose($"CYCLE plan-failure-note: target={target.ObjectName} rd={req.ResourceDefinition?.ID} note={tooltip}");
         }
@@ -761,6 +806,7 @@ public static partial class LogisticsObserver
         if (cmd?.A == null || cmd.B == null || string.IsNullOrEmpty(tooltip))
             return 0;
 
+        var player = MonoBehaviourSingleton<GameManager>.Instance?.Player;
         var resources = cmd.cargoAllStart?.Tab;
         var updated = 0;
         foreach (var requester in Data.LogisticsNetwork.GetAllObjects())
@@ -784,6 +830,14 @@ public static partial class LogisticsObserver
                     var rd = req.ResourceDefinition;
                     if (rd == null || !resources.Any(r => r == rd))
                         continue;
+                }
+
+                if (player != null
+                    && req.ResourceDefinition != null
+                    && HasActiveLogisticsMissionDelivering(requester, req.ResourceDefinition, player))
+                {
+                    LogVerbose($"CYCLE relay-plan-failure-note ignored-active-mission: target={requester.ObjectName} staging={cmd.A.ObjectName}->{cmd.B.ObjectName} rd={req.ResourceDefinition?.ID} note={tooltip}");
+                    continue;
                 }
 
                 req.statusNote = tooltip;

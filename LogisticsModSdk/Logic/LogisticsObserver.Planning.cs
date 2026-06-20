@@ -513,7 +513,16 @@ public static partial class LogisticsObserver
                 }
                 else
                     MarkRequestPlanningEvaluated(requesterOI, rd, planningSignature);
-                if ((req.status == Data.LogisticsRequestStatus.Pending || hasActiveDelivery) && !string.IsNullOrEmpty(pendingReason))
+                if (!string.IsNullOrEmpty(pendingReason) && hasActiveDelivery)
+                {
+                    req.status = Data.LogisticsRequestStatus.InProgress;
+                    if (IsBlockingStatusNote(req.statusNote) && string.IsNullOrEmpty(blockedReturnNote))
+                        req.statusNote = null;
+                    else if (!string.IsNullOrEmpty(blockedReturnNote) && string.IsNullOrWhiteSpace(req.statusNote))
+                        req.statusNote = blockedReturnNote;
+                    LogVerboseCoalesced($"req-active-extra-blocked|{requesterOI?.id}|{rd.ID}", $"REQ active-extra-route-blocked: target={requesterOI?.ObjectName} rd={rd.ID} ignoredNote={pendingReason}");
+                }
+                else if (req.status == Data.LogisticsRequestStatus.Pending && !string.IsNullOrEmpty(pendingReason))
                     req.statusNote = !string.IsNullOrEmpty(blockedReturnNote)
                         ? $"{blockedReturnNote}; {pendingReason}"
                         : pendingReason;

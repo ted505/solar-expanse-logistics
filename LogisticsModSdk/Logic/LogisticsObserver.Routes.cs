@@ -116,7 +116,7 @@ public static partial class LogisticsObserver
         }
         if (IsMinimumShipmentStatus(req?.statusNote))
             return req.statusNote;
-        var executeReason = !string.IsNullOrWhiteSpace(req?.statusNote)
+        var executeReason = IsBlockingStatusNote(req?.statusNote)
             ? req.statusNote
             : bestBlocker.Reason ?? "all candidates failed during execution";
         if (VerboseLoggingEnabled)
