@@ -55,9 +55,12 @@ internal static class LogisticsStrings
     public static string NoSpacecraftAvailableAt(ObjectInfo location) => string.Format(Loc("blocker.no_sc_available", "No spacecraft available at {0}"), Name(location));
     public static string NoProviderSelected() => Loc("blocker.no_provider_selected", "No provider selected");
     public static string NoSurfaceLaunchPathFrom(ObjectInfo provider) => string.Format(Loc("blocker.no_surface_launch", "No surface launch path from {0}"), Name(provider));
-    public static string NoLvQuotaAt(ObjectInfo provider, string suffix) => string.Format(Loc("blocker.no_lv_quota", "No launch vehicle quota at {0}{1}"), Name(provider), suffix ?? "");
-    public static string NoReadyLvAt(ObjectInfo provider, string suffix) => string.Format(Loc("blocker.no_lv_ready", "No ready launch vehicle at {0}{1}"), Name(provider), suffix ?? "");
-    public static string NoMatchingLvQuotaAt(ObjectInfo provider, string suffix) => string.Format(Loc("blocker.no_lv_matching", "No matching launch vehicle quota at {0}{1}"), Name(provider), suffix ?? "");
+    public static string NoLaunchVehiclesAt(ObjectInfo provider) => string.Format(Loc("blocker.no_lvs_present", "No launch vehicles at {0}"), Name(provider));
+    public static string NoLvQuotaAt(ObjectInfo provider) => string.Format(Loc("blocker.no_lv_quota", "No launch vehicle quota enabled at {0}"), Name(provider));
+    public static string NoReadyLvAt(ObjectInfo provider) => string.Format(Loc("blocker.no_lv_ready", "No ready launch vehicle at {0}"), Name(provider));
+    public static string AllLvsCoolingDownAt(ObjectInfo provider) => string.Format(Loc("blocker.lv_cooldown", "All launch vehicles at {0} are recovering for reuse"), Name(provider));
+    public static string NoMatchingLvQuotaAt(ObjectInfo provider) => string.Format(Loc("blocker.no_lv_matching", "No matching launch vehicle quota at {0}"), Name(provider));
+    public static string MatchingLvsCoolingDownAt(ObjectInfo provider) => string.Format(Loc("blocker.lv_matching_cooldown", "Matching launch vehicles at {0} are recovering for reuse"), Name(provider));
     public static string AllLvQuotaInUseAt(ObjectInfo provider) => string.Format(Loc("blocker.lv_quota_full", "All launch vehicle quota in use at {0}"), Name(provider));
     public static string NoLvAvailableAt(ObjectInfo provider) => string.Format(Loc("blocker.no_lv_available", "No launch vehicle available at {0}"), Name(provider));
     public static string NoOrbitalContainerAt(ObjectInfo provider) => string.Format(Loc("blocker.no_container", "No orbital payload container available for {0}"), Name(provider));

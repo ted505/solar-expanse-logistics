@@ -218,34 +218,49 @@ public static partial class LogisticsObserver
             return false;
         }
 
+        var allLaunchSupport = GetAvailableLaunchSupport(providerOI, player, snapshot)
+            .Where(option => option?.Vehicle != null
+                && option.Type != null
+                && option.Vehicle.GetCompany() == player
+                && option.Vehicle.objectInfo == providerOI)
+            .ToList();
+        if (allLaunchSupport.Count == 0)
+        {
+            reason = LogisticsStrings.NoLaunchVehiclesAt(providerOI);
+            return false;
+        }
+
         var lvQuotas = provData.launchVehicleQuota.Where(q => q.count > 0).ToList();
         if (lvQuotas.Count == 0)
         {
-            reason = LogisticsStrings.NoLvQuotaAt(providerOI, DescribeAvailableLaunchSupport(providerOI, player, snapshot));
+            reason = LogisticsStrings.NoLvQuotaAt(providerOI);
             return false;
         }
 
         // GetAvailableLaunchSupport folds stock LVs and fake/facility launch vehicles into
         // one comparable list so staging and direct surface launches use identical rules.
-        var allReadyLV = GetAvailableLaunchSupport(providerOI, player, snapshot)
-            .Where(option => option?.Vehicle != null
-                && option.Type != null
-                && option.Vehicle.GetCompany() == player
-                && option.Vehicle.objectInfo == providerOI
-                && option.Vehicle.IsReadyToLaunchReusable())
+        var allReadyLV = allLaunchSupport
+            .Where(option => option.Vehicle.IsReadyToLaunchReusable())
             .ToList();
         if (allReadyLV.Count == 0)
         {
-            reason = LogisticsStrings.NoReadyLvAt(providerOI, DescribeAvailableLaunchSupport(providerOI, player, snapshot));
+            reason = allLaunchSupport.Any(IsLaunchSupportRecoveringForReuse)
+                ? LogisticsStrings.AllLvsCoolingDownAt(providerOI)
+                : LogisticsStrings.NoReadyLvAt(providerOI);
             return false;
         }
 
+        var matchingLV = allLaunchSupport
+            .Where(option => lvQuotas.Any(q => Data.LogisticsNetwork.QuotaMatches(q, option.Type.ID, option.Type.Name ?? "LV")))
+            .ToList();
         var matchingReadyLV = allReadyLV
             .Where(option => lvQuotas.Any(q => Data.LogisticsNetwork.QuotaMatches(q, option.Type.ID, option.Type.Name ?? "LV")))
             .ToList();
         if (matchingReadyLV.Count == 0)
         {
-            reason = LogisticsStrings.NoMatchingLvQuotaAt(providerOI, DescribeAvailableLaunchSupport(providerOI, player, snapshot));
+            reason = matchingLV.Any(IsLaunchSupportRecoveringForReuse)
+                ? LogisticsStrings.MatchingLvsCoolingDownAt(providerOI)
+                : LogisticsStrings.NoMatchingLvQuotaAt(providerOI);
             return false;
         }
 
@@ -686,6 +701,15 @@ public static partial class LogisticsObserver
         return string.IsNullOrWhiteSpace(labels)
             ? string.Empty
             : $"; available launch support={labels}{elevator}";
+    }
+
+    private static bool IsLaunchSupportRecoveringForReuse(LaunchSupportOption option)
+    {
+        var lv = option?.Vehicle;
+        return lv?.launchVehicleType != null
+            && lv.launchVehicleType.reusability > 0f
+            && lv.launchTime.HasValue
+            && !lv.IsReadyToLaunchReusable();
     }
 
     private static string BuildLaunchSupportLabel(LaunchVehicle lv, Facility facility, string category)

@@ -373,6 +373,7 @@ public static partial class LogisticsObserver
             || lower.Contains("no ready launch vehicle")
             || lower.Contains("no matching launch vehicle")
             || lower.Contains("all launch vehicle quota in use")
+            || lower.Contains("recovering for reuse")
             || lower.Contains("no idle spacecraft")
             || lower.Contains("no spacecraft available")
             || lower.Contains("no spacecraft at")
