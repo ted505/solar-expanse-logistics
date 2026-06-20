@@ -439,7 +439,7 @@ public class LogisticsUI : MonoBehaviour
                 }
                 if (hasInboundStatuses)
                 {
-                    AddSmallButton(row.transform, isGetExpanded ? "▾" : "▸", _runtimeStyle.SmallButtonColor, () =>
+                    AddSmallButton(row.transform, isGetExpanded ? "▼" : ">", _runtimeStyle.SmallButtonColor, () =>
                     {
                         if (_expandedGetRequestKeys.Contains(getExpandKey))
                             _expandedGetRequestKeys.Remove(getExpandKey);
@@ -741,7 +741,7 @@ public class LogisticsUI : MonoBehaviour
                 }
                 if (hasSendShips)
                 {
-                    AddSmallButton(row.transform, isSendExpanded ? "▾" : "▸", _runtimeStyle.SmallButtonColor, () =>
+                    AddSmallButton(row.transform, isSendExpanded ? "▼" : ">", _runtimeStyle.SmallButtonColor, () =>
                     {
                         if (_expandedSendProviderKeys.Contains(sendExpandKey))
                             _expandedSendProviderKeys.Remove(sendExpandKey);
@@ -862,7 +862,7 @@ public class LogisticsUI : MonoBehaviour
                 nameLe.preferredWidth = 0f;
 
                 var capturedExpandKey = expandKey;
-                AddSmallButton(row.transform, isExpanded ? "▾" : "▸", _runtimeStyle.SmallButtonColor, () =>
+                AddSmallButton(row.transform, isExpanded ? "▼" : ">", _runtimeStyle.SmallButtonColor, () =>
                 {
                     if (_expandedQuotaKeys.Contains(capturedExpandKey))
                         _expandedQuotaKeys.Remove(capturedExpandKey);
@@ -1895,7 +1895,7 @@ public class LogisticsUI : MonoBehaviour
             void RefreshMinimumToggle()
             {
                 if (minimumToggleLabel != null)
-                    minimumToggleLabel.text = useMinimum ? "[X] Minimum threshold" : "[ ] Minimum threshold";
+                    minimumToggleLabel.text = useMinimum ? "[X] Reorder Threshold" : "[ ] Reorder Threshold";
                 editRow.SetActive(useMinimum);
                 editTargetGo.SetActive(useMinimum);
                 editMinimumGo.SetActive(useMinimum);
