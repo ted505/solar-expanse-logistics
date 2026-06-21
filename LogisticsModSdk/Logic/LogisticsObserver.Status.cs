@@ -26,9 +26,10 @@ public static partial class LogisticsObserver
             return null;
 
         var parts = new List<string>();
-        if (result.HasFlag(PMMissionParameter.EPlanMissionResult.NoFuelCantBuy))
+        var noFuelAtSource = result.HasFlag(PMMissionParameter.EPlanMissionResult.NoFuelCantBuy);
+        if (noFuelAtSource)
             parts.Add("Insufficient fuel at source");
-        if (result.HasFlag(PMMissionParameter.EPlanMissionResult.WrongRemoveFuel))
+        if (!noFuelAtSource && result.HasFlag(PMMissionParameter.EPlanMissionResult.WrongRemoveFuel))
             parts.Add("Cannot load fuel");
         if (result.HasFlag(PMMissionParameter.EPlanMissionResult.WrongThrust))
             parts.Add("Insufficient thrust for route");
@@ -173,7 +174,7 @@ public static partial class LogisticsObserver
             {
                 status.State = ShipState.Blocked;
                 status.Location = current?.ObjectName ?? "?";
-                status.StatusText = returnState.LastBlockedStatusNote ?? returnState.LastBlockedReason ?? "Blocked";
+                status.StatusText = FormatBlockedStatusNote(returnState.LastBlockedStatusNote ?? returnState.LastBlockedReason ?? "Blocked");
                 return status;
             }
 
