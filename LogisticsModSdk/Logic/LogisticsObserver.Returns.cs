@@ -301,11 +301,8 @@ public static partial class LogisticsObserver
         if (allowBackhaul && transferType == ETransferType.Fastest && double.IsPositiveInfinity(backhaulAmountLimit))
         {
             var rawCapacity = scType?.GetCargoCapacity(player) ?? 0;
-            var reserveFuelRoom = UseFuelProbeForSpacecraft(home, sc)
-                ? EstimatePrePlanReturnFuel(sc, player)
-                : 0;
-            backhaulAmountLimit = Math.Max(0, Math.Floor((rawCapacity - reserveFuelRoom) * FastestBackhaulCargoFraction));
-            LogVerbose($"RETURNHOME fast-backhaul-cap: ship={sc.GetSpacecraftName()} id={sc.ID} rawCapacity={rawCapacity:0.#} reserveFuelRoom={reserveFuelRoom:0.#} cap={backhaulAmountLimit:0.#} current={current.ObjectName} home={home.ObjectName}");
+            backhaulAmountLimit = Math.Max(0, Math.Floor(rawCapacity * FastestBackhaulCargoFraction));
+            LogVerbose($"RETURNHOME fast-backhaul-cap: ship={sc.GetSpacecraftName()} id={sc.ID} rawCapacity={rawCapacity:0.#} cap={backhaulAmountLimit:0.#} current={current.ObjectName} home={home.ObjectName}");
         }
         var backhaulCargo = CargoAll.CreateCargoEmpty();
         ResourceDefinition backhaulRd = null;
@@ -418,13 +415,10 @@ public static partial class LogisticsObserver
             return false;
 
         var rawCapacity = scType.GetCargoCapacity(player);
-        var reserveFuelRoom = UseFuelProbeForSpacecraft(home, sc)
-            ? EstimatePrePlanReturnFuel(sc, player)
-            : 0;
-        var capacity = Math.Max(0, rawCapacity - reserveFuelRoom);
+        var capacity = Math.Max(0, rawCapacity);
         if (capacity <= 0)
         {
-            LogVerbose($"BACKHAUL skip-capacity: ship={sc.GetSpacecraftName()} rawCapacity={rawCapacity:0.#} reserveFuelRoom={reserveFuelRoom:0.#} current={current.ObjectName} home={home.ObjectName}");
+            LogVerbose($"BACKHAUL skip-capacity: ship={sc.GetSpacecraftName()} rawCapacity={rawCapacity:0.#} current={current.ObjectName} home={home.ObjectName}");
             return false;
         }
 
@@ -488,7 +482,7 @@ public static partial class LogisticsObserver
         if (backhaulAmount <= 0)
             return false;
 
-        LogVerbose($"BACKHAUL matched: ship={sc.GetSpacecraftName()} rd={backhaulRd.ID} amount={backhaulAmount:0.#} surplus={best.surplus:0.#} need={best.need:0.#} capacity={capacity:0.#} limit={(double.IsPositiveInfinity(amountLimit) ? "none" : amountLimit.ToString("0.#"))} rawCapacity={rawCapacity:0.#} reserveFuelRoom={reserveFuelRoom:0.#} priority={best.req.priority} current={current.ObjectName} home={home.ObjectName} target={best.target?.ObjectName ?? "null"}");
+        LogVerbose($"BACKHAUL matched: ship={sc.GetSpacecraftName()} rd={backhaulRd.ID} amount={backhaulAmount:0.#} surplus={best.surplus:0.#} need={best.need:0.#} capacity={capacity:0.#} limit={(double.IsPositiveInfinity(amountLimit) ? "none" : amountLimit.ToString("0.#"))} rawCapacity={rawCapacity:0.#} priority={best.req.priority} current={current.ObjectName} home={home.ObjectName} target={best.target?.ObjectName ?? "null"}");
         return true;
     }
 
