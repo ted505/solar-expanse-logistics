@@ -215,6 +215,7 @@ public static class LogisticsNetwork
             var prov = data.providers[index];
             if (prov.isDirect && prov.directLinkedObjectId >= 0 && prov.ResourceDefinition != null)
                 RemoveLinkedDirectRequest(prov.directLinkedObjectId, prov.ResourceDefinition, oi?.id ?? -1);
+            LogisticsObserver.OnProviderRemoved(oi, prov);
             data.providers.RemoveAt(index);
         }
     }
@@ -769,10 +770,16 @@ public static class LogisticsNetwork
         if (oi == null || rd == null) return;
         var data = Get(oi);
         if (data?.providers == null) return;
-        data.providers.RemoveAll(p => p != null
-            && p.isDirect
-            && p.directLinkedObjectId == linkedFromObjectId
-            && p.ResourceDefinition == rd);
+        foreach (var provider in data.providers
+            .Where(p => p != null
+                && p.isDirect
+                && p.directLinkedObjectId == linkedFromObjectId
+                && p.ResourceDefinition == rd)
+            .ToList())
+        {
+            LogisticsObserver.OnProviderRemoved(oi, provider);
+            data.providers.Remove(provider);
+        }
     }
 
     public static ObjectInfo ResolveObjectById(int objectId)
