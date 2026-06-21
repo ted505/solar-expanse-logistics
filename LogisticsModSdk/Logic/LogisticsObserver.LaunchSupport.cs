@@ -794,7 +794,8 @@ public static partial class LogisticsObserver
     {
         return !string.IsNullOrWhiteSpace(reason)
             && (reason.IndexOf("No logistics data", StringComparison.OrdinalIgnoreCase) >= 0
-                || reason.IndexOf("No spacecraft logistics", StringComparison.OrdinalIgnoreCase) >= 0);
+                || reason.IndexOf("No spacecraft logistics", StringComparison.OrdinalIgnoreCase) >= 0
+                || reason.IndexOf("No spacecraft present", StringComparison.OrdinalIgnoreCase) >= 0);
     }
 
     private static Spacecraft PeekCyclicalOrbitalContainer(Company player)

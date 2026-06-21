@@ -159,8 +159,17 @@ public static partial class LogisticsObserver
                     {
                         if (_returnHomeByShipId.TryGetValue(sc.ID, out var state) && state != null)
                         {
-                            state.LastBlockedReason = reason;
-                            state.LastBlockedStatusNote = reason;
+                            if (!state.HasLeftHome)
+                            {
+                                ResetReturnPlanState(state);
+                                ResetReturnFailureState(state);
+                                _returnHomeByShipId.Remove(sc.ID);
+                            }
+                            else
+                            {
+                                state.LastBlockedReason = reason;
+                                state.LastBlockedStatusNote = reason;
+                            }
                         }
                         else
                         {
