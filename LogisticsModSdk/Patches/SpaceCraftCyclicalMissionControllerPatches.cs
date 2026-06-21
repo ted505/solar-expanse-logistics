@@ -767,7 +767,7 @@ internal static class SpaceCraftCyclicalMissionControllerPatches
         {
             var checkResult = PMMissionParameter?.CheckCanPlanMission().planMissionResult
                 ?? PMMissionParameter.EPlanMissionResult.AllOk;
-            var translated = LogisticsObserver.TranslatePlanMissionResult(checkResult);
+            var translated = LogisticsObserver.TranslatePlanMissionResult(PMMissionParameter, checkResult);
 
             string tooltip = null;
             if (PMMissionParameter != null && !PMMissionParameter.CheckScheduleFly())

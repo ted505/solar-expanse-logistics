@@ -98,7 +98,7 @@ public static partial class LogisticsObserver
         else
         {
             ApplyCargoScale(cargoItems, original, 0);
-            var failureReason = TranslatePlanMissionResult(result) ?? $"Mission blocked ({result})";
+            var failureReason = TranslatePlanMissionResult(pmp, result) ?? $"Mission blocked ({result})";
             LogWarning($"CAP planner cargo: no valid cargo amount found for {pmp.Start?.ObjectName} -> {pmp.Target?.ObjectName}; original={originalTotal:0.#}, result={result} - aborting cycle");
             AbortLogisticsCycle(pmp, failureReason);
         }

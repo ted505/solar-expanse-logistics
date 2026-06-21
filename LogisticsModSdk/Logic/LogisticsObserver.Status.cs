@@ -22,6 +22,11 @@ public static partial class LogisticsObserver
 {
     public static string TranslatePlanMissionResult(PMMissionParameter.EPlanMissionResult result)
     {
+        return TranslatePlanMissionResult(null, result);
+    }
+
+    public static string TranslatePlanMissionResult(PMMissionParameter pmp, PMMissionParameter.EPlanMissionResult result)
+    {
         if (result == PMMissionParameter.EPlanMissionResult.AllOk)
             return null;
 
@@ -35,8 +40,7 @@ public static partial class LogisticsObserver
             parts.Add("Insufficient thrust for route");
         if (result.HasFlag(PMMissionParameter.EPlanMissionResult.WrongMaxCapacityFuelOk))
             parts.Add("Route requires too much fuel for any payload");
-        if (result.HasFlag(PMMissionParameter.EPlanMissionResult.WrongLV))
-            parts.Add("Launch vehicle required");
+        AddLaunchVehicleFailure(parts, pmp, result);
         if (result.HasFlag(PMMissionParameter.EPlanMissionResult.WrongResourcesCargoLoadLimit))
             parts.Add("Cargo exceeds load limit");
 
@@ -44,6 +48,37 @@ public static partial class LogisticsObserver
             return $"Mission blocked ({result})";
 
         return string.Join("; ", parts);
+    }
+
+    private static void AddLaunchVehicleFailure(List<string> parts, PMMissionParameter pmp, PMMissionParameter.EPlanMissionResult result)
+    {
+        var wrongLv = result.HasFlag(PMMissionParameter.EPlanMissionResult.WrongLV);
+        var wrongCheckLv = result.HasFlag(PMMissionParameter.EPlanMissionResult.WrongCheckLvOk);
+        var scNoLvFuel = result.HasFlag(PMMissionParameter.EPlanMissionResult.WrongScNoLVFuelOk);
+        if (!wrongLv && !wrongCheckLv && !scNoLvFuel)
+            return;
+
+        var at = pmp?.Start?.ObjectName;
+        var atPart = string.IsNullOrWhiteSpace(at) ? string.Empty : $" at {at}";
+        var lvName = pmp?.LV?.GetLaunchVehicleType()?.Name;
+        var scName = pmp?.SC?.GetTypeSpaceCraft()?.NameRocketType ?? pmp?.SC?.GetSpacecraftName();
+
+        if (wrongCheckLv)
+        {
+            var subject = string.IsNullOrWhiteSpace(lvName) ? "Launch vehicle" : lvName;
+            var spacecraft = string.IsNullOrWhiteSpace(scName) ? string.Empty : $" for {scName}";
+            parts.Add($"{subject} launch check failed{atPart}{spacecraft}");
+            return;
+        }
+
+        if (wrongLv && pmp?.LV != null)
+        {
+            var subject = string.IsNullOrWhiteSpace(lvName) ? "Launch vehicle" : lvName;
+            parts.Add($"{subject} rejected{atPart}");
+            return;
+        }
+
+        parts.Add($"Launch vehicle required{atPart}");
     }
 
     public struct QuotaShipStatus
@@ -415,6 +450,12 @@ public static partial class LogisticsObserver
             return "Not enough fuel to load";
         if (lower.Contains("wrongthrust") || lower.Contains("insufficient thrust"))
             return "Insufficient thrust for route";
+        if (lower.Contains("launch check failed at ")
+            || lower.Contains("launch vehicle required at ")
+            || lower.Contains(" rejected at "))
+        {
+            return note.Length <= 96 ? note : note.Substring(0, 93) + "...";
+        }
         if (lower.Contains("wronglv") || lower.Contains("launch vehicle required"))
             return "Launch vehicle required";
         if (lower.Contains("wrongmaxcapacityfuelok") || lower.Contains("too much fuel"))

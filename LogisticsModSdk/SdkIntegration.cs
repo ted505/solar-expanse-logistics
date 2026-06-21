@@ -418,7 +418,7 @@ internal static class SdkIntegration
             var parameter = context.MissionParameter;
             var checkResult = parameter?.CheckCanPlanMission().planMissionResult
                 ?? PMMissionParameter.EPlanMissionResult.AllOk;
-            var translated = Logic.LogisticsObserver.TranslatePlanMissionResult(checkResult);
+            var translated = Logic.LogisticsObserver.TranslatePlanMissionResult(parameter, checkResult);
 
             string tooltip = null;
             if (parameter != null && !parameter.CheckScheduleFly())
