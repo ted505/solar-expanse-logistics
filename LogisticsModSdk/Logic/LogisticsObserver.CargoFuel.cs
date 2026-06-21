@@ -604,9 +604,11 @@ public static partial class LogisticsObserver
             return cargoAll.CargoCurrent > 0;
         }
 
+        var expectedReturnCargo = BuildExpectedReturnCargoForFuelProbe(providerOI, requesterOI, sc, player, providerRule);
         if (!TryEstimateReturnFuelRequirement(providerOI, requesterOI, sc, player, cargoAll, lvType,
                 out var waitingForProbe,
-                out var fuelType, out var requiredReserve, out var destinationStock, out var returnFuelBlockReason))
+                out var fuelType, out var requiredReserve, out var destinationStock, out var returnFuelBlockReason,
+                expectedReturnCargo))
         {
             waitingForFuelProbe = waitingForProbe;
             if (waitingForFuelProbe)
@@ -674,6 +676,27 @@ public static partial class LogisticsObserver
         return cargoAll.CargoCurrent > 0;
     }
 
+    private static CargoAll BuildExpectedReturnCargoForFuelProbe(ObjectInfo providerOI, ObjectInfo requesterOI,
+        Spacecraft sc, Company player, Data.LogisticsProvider providerRule)
+    {
+        var empty = CargoAll.CreateCargoEmpty();
+        if (providerOI == null || requesterOI == null || sc == null || player == null)
+            return empty;
+        if (!UseFuelProbeForSpacecraft(providerOI, sc, providerRule))
+            return empty;
+        if (!TryBuildBackhaulManifest(sc, requesterOI, providerOI, player, null,
+                out var backhaulRd, out var backhaulAmount, out var backhaulTarget)
+            || backhaulRd == null
+            || backhaulAmount <= 0)
+        {
+            return empty;
+        }
+
+        AddOrIncreaseResourceCargo(empty, backhaulRd, backhaulAmount);
+        LogVerbose($"RETURNFUEL expected-return-cargo: outbound={providerOI.ObjectName}->{requesterOI.ObjectName} return={requesterOI.ObjectName}->{backhaulTarget?.ObjectName ?? providerOI.ObjectName} ship={sc.GetSpacecraftName()} rd={backhaulRd.ID} amount={backhaulAmount:0.#} cargo={FormatCargo(empty)}");
+        return empty;
+    }
+
     private static bool ShouldReserveReturnFuel(ObjectInfo providerOI, ObjectInfo requesterOI, Spacecraft sc, Company player, Data.LogisticsProvider providerRule = null)
     {
         var scType = sc?.GetTypeSpaceCraft();
@@ -714,7 +737,7 @@ public static partial class LogisticsObserver
         Spacecraft sc, Company player, CargoAll cargoAll, LaunchVehicleType lvType,
         out bool waitingForProbe,
         out ResourceDefinition fuelType, out double requiredReserve, out double destinationStock,
-        out string blockReason)
+        out string blockReason, CargoAll expectedReturnCargo = null)
     {
         waitingForProbe = false;
         fuelType = null;
@@ -741,10 +764,11 @@ public static partial class LogisticsObserver
             return false;
         }
 
-        var probeKey = BuildReturnFuelProbeKey(providerOI, requesterOI, sc, player, lvType);
+        var returnCargoForProbe = expectedReturnCargo ?? CargoAll.CreateCargoEmpty();
+        var probeKey = BuildReturnFuelProbeKey(providerOI, requesterOI, sc, player, lvType, returnCargoForProbe);
         if (!_returnFuelProbeCache.TryGetValue(probeKey, out var probe) || (!probe.Pending && !probe.Complete))
         {
-            StartAsyncReturnFuelProbe(probeKey, providerOI, requesterOI, sc, player, lvType);
+            StartAsyncReturnFuelProbe(probeKey, providerOI, requesterOI, sc, player, lvType, returnCargoForProbe);
             waitingForProbe = true;
             return false;
         }
@@ -765,7 +789,7 @@ public static partial class LogisticsObserver
         fuelType = probe.FuelType;
         requiredReserve = probe.RequiredReserve;
         destinationStock = GetAccessibleFuelStock(requesterOI, sc, player, fuelType);
-        LogVerboseCoalesced($"returnfuel-cache|{providerOI.id}|{requesterOI.id}|{scType.ID}|{fuelType.ID}", $"RETURNFUEL probe-cache-hit: outbound={providerOI.ObjectName}->{requesterOI.ObjectName} return={requesterOI.ObjectName}->{providerOI.ObjectName} ship={sc.GetSpacecraftName()} scType={scType.NameRocketType} lv={lvType?.Name ?? "none"} result={probe.Result} fuel={fuelType.ID} allFuel={probe.AllFuelNeed:0.#} minFuel={probe.MinFuelCost:0.#} fuelNeed={probe.FuelNeed:0.#} leftOver={probe.LeftOverFuel:0.#} reserve={requiredReserve:0.#} destStock={destinationStock:0.#} tank={scType.GetFuelCapacity(player):0.#} cargo={FormatCargo(cargoAll)}");
+        LogVerboseCoalesced($"returnfuel-cache|{providerOI.id}|{requesterOI.id}|{scType.ID}|{fuelType.ID}|{BuildReturnCargoFingerprint(returnCargoForProbe)}", $"RETURNFUEL probe-cache-hit: outbound={providerOI.ObjectName}->{requesterOI.ObjectName} return={requesterOI.ObjectName}->{providerOI.ObjectName} ship={sc.GetSpacecraftName()} scType={scType.NameRocketType} lv={lvType?.Name ?? "none"} result={probe.Result} fuel={fuelType.ID} allFuel={probe.AllFuelNeed:0.#} minFuel={probe.MinFuelCost:0.#} fuelNeed={probe.FuelNeed:0.#} leftOver={probe.LeftOverFuel:0.#} reserve={requiredReserve:0.#} destStock={destinationStock:0.#} tank={scType.GetFuelCapacity(player):0.#} outboundCargo={FormatCargo(cargoAll)} returnCargo={FormatCargo(returnCargoForProbe)}");
         if (probe.ReturnPlanOverTank)
         {
             var returnNeed = Math.Max(probe.AllFuelNeed, probe.MinFuelCost);
@@ -783,7 +807,7 @@ public static partial class LogisticsObserver
     }
 
     private static string BuildReturnFuelProbeKey(ObjectInfo providerOI, ObjectInfo requesterOI,
-        Spacecraft sc, Company player, LaunchVehicleType lvType)
+        Spacecraft sc, Company player, LaunchVehicleType lvType, CargoAll expectedReturnCargo)
     {
         var transfer = GetTransferTypeForSpacecraft(providerOI, sc);
         var scType = sc?.spacecraftType ?? sc?.GetTypeSpaceCraft();
@@ -798,7 +822,23 @@ public static partial class LogisticsObserver
             $"cargo={Math.Round(cargoCapacity, 1)}",
             lvType?.ID ?? lvType?.Name ?? "no-lv",
             transfer.ToString(),
-            $"margin={ReturnFuelSafetyMultiplier():0.###}");
+            $"margin={ReturnFuelSafetyMultiplier():0.###}",
+            $"returnCargo={BuildReturnCargoFingerprint(expectedReturnCargo)}");
+    }
+
+    private static string BuildReturnCargoFingerprint(CargoAll cargo)
+    {
+        if (cargo == null || cargo.CargoCurrent <= 0)
+            return "empty";
+
+        var items = SolarSdk.MissionLoadout.GetRegularResourceCargoItems(cargo)
+            .Where(c => c?.resourceType != null && c.cargoMass > 0)
+            .OrderBy(c => c.resourceType.ID)
+            .Select(c => $"{c.resourceType.ID}:{Math.Round(c.cargoMass, 1)}")
+            .ToList();
+        if (items.Count == 0)
+            return $"mass={Math.Round(cargo.CargoCurrent, 1)}";
+        return string.Join(",", items);
     }
 
     private static void StoreReturnFuelProbe(string key, ReturnFuelProbeState probe)
@@ -830,7 +870,7 @@ public static partial class LogisticsObserver
     }
 
     private static void StartAsyncReturnFuelProbe(string key, ObjectInfo providerOI, ObjectInfo requesterOI,
-        Spacecraft sc, Company player, LaunchVehicleType lvType)
+        Spacecraft sc, Company player, LaunchVehicleType lvType, CargoAll expectedReturnCargo = null)
     {
         using (TimeScope($"StartAsyncReturnFuelProbe {requesterOI?.ObjectName ?? "null"}->{providerOI?.ObjectName ?? "null"}"))
         {
@@ -850,7 +890,7 @@ public static partial class LogisticsObserver
         };
         StoreReturnFuelProbe(key, probe);
 
-        var probeCargo = CargoAll.CreateCargoEmpty();
+        var probeCargo = SolarSdk.MissionLoadout.CloneCargo(expectedReturnCargo) ?? CargoAll.CreateCargoEmpty();
         var probeSpacecraft = new PlannerSpacecraftInfo(sc, requesterOI);
         var pmp = new PMMissionParameter();
         pmp.SetCompany(player);
@@ -883,7 +923,7 @@ public static partial class LogisticsObserver
         ApplyCachedPrecalculateData(pmp);
 
         if (VerboseLoggingEnabled)
-            LogVerbose($"RETURNFUEL async-probe-start: key={key} returnRoute={requesterOI.ObjectName}->{providerOI.ObjectName} ship={sc.GetSpacecraftName()} scType={scType?.NameRocketType ?? "null"} probePos={probeSpacecraft.GetActualPosition()?.ObjectName ?? "null"} transfer={transfer} moonCase={isMoonCase} fuel={fuelType?.ID ?? "null"}");
+            LogVerbose($"RETURNFUEL async-probe-start: key={key} returnRoute={requesterOI.ObjectName}->{providerOI.ObjectName} ship={sc.GetSpacecraftName()} scType={scType?.NameRocketType ?? "null"} probePos={probeSpacecraft.GetActualPosition()?.ObjectName ?? "null"} transfer={transfer} moonCase={isMoonCase} fuel={fuelType?.ID ?? "null"} returnCargo={FormatCargo(probeCargo)}");
         MonoBehaviourSingleton<GameManager>.Instance.SetPMParameterForCodeJobSystem(pmp, () =>
         {
             using (TimeScope($"ReturnFuelProbeCallback {requesterOI?.ObjectName ?? "null"}->{providerOI?.ObjectName ?? "null"}"))
@@ -909,7 +949,7 @@ public static partial class LogisticsObserver
                 probe.RequiredReserve = 0;
                 probe.Result = result;
                 probe.FailureReason = "planner did not initialize route dates/fuel";
-                LogWarning($"RETURNFUEL probe-uninitialized: key={key} returnRoute={requesterOI.ObjectName}->{providerOI.ObjectName} ship={sc.GetSpacecraftName()} result={result} fuel={callbackFuelType?.ID ?? "null"} allFuel={pmp.AllFuelNeed:0.#} minFuel={pmp.MINFuelCost:0.#} depart={pmp.DepartureTimeDate:yyyy-MM-dd} arrive={pmp.Arrival:yyyy-MM-dd}");
+                LogWarning($"RETURNFUEL probe-uninitialized: key={key} returnRoute={requesterOI.ObjectName}->{providerOI.ObjectName} ship={sc.GetSpacecraftName()} result={result} fuel={callbackFuelType?.ID ?? "null"} allFuel={pmp.AllFuelNeed:0.#} minFuel={pmp.MINFuelCost:0.#} cargo={FormatCargo(probeCargo)} depart={pmp.DepartureTimeDate:yyyy-MM-dd} arrive={pmp.Arrival:yyyy-MM-dd}");
                 return;
             }
             var tankCapacity = scType?.GetFuelCapacity(player) ?? 0;
@@ -932,13 +972,43 @@ public static partial class LogisticsObserver
             CachePrecalculateData(pmp, "return-fuel-probe");
 
             if (probe.ReturnPlanOverTank)
-                LogWarning($"RETURNFUEL probe-over-tank: key={key} returnRoute={requesterOI.ObjectName}->{providerOI.ObjectName} ship={sc.GetSpacecraftName()} result={result} planFuel={planFuelNeed:0.#} tank={maxTank:0.#} reserve={requiredReserve:0.#}");
+                LogWarning($"RETURNFUEL probe-over-tank: key={key} returnRoute={requesterOI.ObjectName}->{providerOI.ObjectName} ship={sc.GetSpacecraftName()} result={result} planFuel={planFuelNeed:0.#} tank={maxTank:0.#} reserve={requiredReserve:0.#} cargo={FormatCargo(probeCargo)}");
 
             if (VerboseLoggingEnabled)
-                LogVerbose($"RETURNFUEL async-probe-result: key={key} returnRoute={requesterOI.ObjectName}->{providerOI.ObjectName} ship={sc.GetSpacecraftName()} result={result} fuel={callbackFuelType?.ID ?? "null"} allFuel={pmp.AllFuelNeed:0.#} minFuel={pmp.MINFuelCost:0.#} fuelNeed={pmp.FuelNeed:0.#} leftOver={pmp.LeftOverFuel:0.#} reserve={requiredReserve:0.#} depart={pmp.DepartureTimeDate:yyyy-MM-dd} arrive={pmp.Arrival:yyyy-MM-dd}");
+                LogVerbose($"RETURNFUEL async-probe-result: key={key} returnRoute={requesterOI.ObjectName}->{providerOI.ObjectName} ship={sc.GetSpacecraftName()} result={result} fuel={callbackFuelType?.ID ?? "null"} allFuel={pmp.AllFuelNeed:0.#} minFuel={pmp.MINFuelCost:0.#} fuelNeed={pmp.FuelNeed:0.#} leftOver={pmp.LeftOverFuel:0.#} reserve={requiredReserve:0.#} cargo={FormatCargo(probeCargo)} depart={pmp.DepartureTimeDate:yyyy-MM-dd} arrive={pmp.Arrival:yyyy-MM-dd}");
             }
         });
         }
+    }
+
+    private static bool CanFuelReturnWithCargo(ObjectInfo current, ObjectInfo home, Spacecraft sc, Company player,
+        CargoAll returnCargo, LaunchVehicleType lvType, out bool waitingForProbe, out string blockReason)
+    {
+        waitingForProbe = false;
+        blockReason = null;
+        if (!ReturnFuelEnabled() || returnCargo == null || returnCargo.CargoCurrent <= 0)
+            return true;
+
+        if (!TryEstimateReturnFuelRequirement(home, current, sc, player, returnCargo, lvType,
+                out waitingForProbe,
+                out var fuelType, out var requiredReserve, out var destinationStock, out var probeBlockReason,
+                returnCargo))
+        {
+            blockReason = probeBlockReason ?? (waitingForProbe ? "Waiting for return fuel estimate" : "Return fuel estimate unavailable");
+            return false;
+        }
+
+        var existingFuelCargo = CargoAmountFor(returnCargo, fuelType);
+        var shortfall = Math.Max(0, requiredReserve - destinationStock - existingFuelCargo);
+        if (shortfall <= 0)
+        {
+            LogVerbose($"RETURNHOME backhaul-fuel-ok: route={current?.ObjectName}->{home?.ObjectName} ship={sc?.GetSpacecraftName() ?? "null"} fuel={fuelType?.ID ?? "null"} reserve={requiredReserve:0.#} stock={destinationStock:0.#} fuelCargo={existingFuelCargo:0.#} cargo={FormatCargo(returnCargo)}");
+            return true;
+        }
+
+        blockReason = $"Not enough {fuelType?.Name ?? fuelType?.ID ?? "fuel"} for loaded return at {current?.ObjectName ?? "destination"} ({destinationStock + existingFuelCargo:0.#}/{requiredReserve:0.#})";
+        LogWarning($"RETURNHOME backhaul-fuel-skip: route={current?.ObjectName}->{home?.ObjectName} ship={sc?.GetSpacecraftName() ?? "null"} reason=\"{blockReason}\" reserve={requiredReserve:0.#} stock={destinationStock:0.#} fuelCargo={existingFuelCargo:0.#} shortfall={shortfall:0.#} cargo={FormatCargo(returnCargo)}");
+        return false;
     }
 
     private static void EnsureReturnFuelReserveFromPlan(PMMissionParameter pmp)

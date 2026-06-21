@@ -317,6 +317,26 @@ public static partial class LogisticsObserver
         var returnTarget = backhaulRd != null && backhaulAmount > 0 && backhaulTarget != null
             ? backhaulTarget
             : home;
+        if (backhaulRd != null && backhaulAmount > 0
+            && !CanFuelReturnWithCargo(current, returnTarget, sc, player, backhaulCargo, returnLvType,
+                out var waitingForBackhaulFuelProbe, out var backhaulFuelBlockReason))
+        {
+            if (waitingForBackhaulFuelProbe)
+            {
+                state.LastBlockedReason = backhaulFuelBlockReason;
+                state.LastBlockedStatusNote = "Calculating return fuel for backhaul";
+                LogVerboseCoalesced($"returnhome-backhaul-fuel-pending|{sc.ID}|{current.id}|{returnTarget.id}|{backhaulRd.ID}", $"RETURNHOME backhaul-fuel-pending: ship={sc.GetSpacecraftName()} id={sc.ID} current={current.ObjectName} target={returnTarget.ObjectName} rd={backhaulRd.ID} amount={backhaulAmount:0.#} reason={backhaulFuelBlockReason}");
+                return false;
+            }
+
+            ResetReturnPlanState(state);
+            state.ReturnRetryAfter = DateTime.MinValue;
+            state.ReturnRetryWallClockAfterUtc = DateTime.MinValue;
+            state.ConsecutiveReturnCycleFailures = 0;
+            LogWarning($"RETURNHOME backhaul-skip: ship={sc.GetSpacecraftName()} id={sc.ID} current={current.ObjectName} target={returnTarget.ObjectName} rd={backhaulRd.ID} amount={backhaulAmount:0.#} reason=\"{backhaulFuelBlockReason ?? "loaded return is not fuelable"}\"");
+            return TrySetupReturnCycle(sc, current, home, player, state, snapshot, allowBackhaul: false);
+        }
+
         var scList = new List<ISpacecraftInfo> { sc as ISpacecraftInfo };
         if (!ValidateSdkDispatchBoundary("return-home", player, current, returnTarget, sc, backhaulCargo, allowSyntheticCarrier: false, out var validationFailure))
         {
